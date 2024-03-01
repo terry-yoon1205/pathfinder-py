@@ -1,1 +1,9 @@
-Use this file to commit information clearly documenting your check-ins' content. If you want to store more information/details besides what's required for the check-ins that's fine too. Make sure that your TA has had a chance to sign off on your check-in each week (before the deadline); typically you should discuss your material with them before finalizing it here.
+# Check-in 1
+Our group has decided to work on an analysis tool for Python.
+Current ideas:
+- method runtime analysis
+- convert loops into list comprehensions
+- method call analysis
+- type checking for non-statically typed languages (eg. Python)
+
+Our main plan for the time being is just brainstorming ideas for the project, and deciding on an option by late this week/early next week
