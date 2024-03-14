@@ -18,23 +18,17 @@ Our main plan for the time being is just brainstorming ideas for the project, an
 
 # Check-in 2
 
-_**Python Code-smell Checker**_
+_**(UPDATED) Python Dead code finder**_
 
-After consulting with the TA, we have decided to go with a static Python code-smell checker. It will analyze code and search for common design errors ("code smells") and common control flow errors. 
+After consulting with the TA, we have decided to go with a static Python dead-code checker. It will search for redundant code that do not effect the outcome of a program's execution, as well as unreachable code.
 
-The target demographic is for programmers who want a more sophisticated check on their code for potential design issues that are not caught by a linter and the compiler. 
+The target demographic is for programmers who want a more sophisticated check on their code for potential dead code that is not caught by a linter or the compiler. 
 
 **Basic Checks**:
-- Duplicate code - extract method
-- magic numbers
-- Check unused function return values
-- Check data hiding (law of demeter)
-- Method & line length
-- Statement nesting length
+- Redundant code
 
 **Control Flow Related Checks**:
 - Unreachable code 
-- Infinite Loops (For and while loops)
 
 The new analysis tool's feature set addresses the concerns presented by the TA that the tool was too simplistic, and did not perform any kind of check or analysis effected by control flow.
 
