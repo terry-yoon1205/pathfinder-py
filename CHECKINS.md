@@ -159,3 +159,22 @@ We have completed everything as planned for check-in 3 except begin writing test
 
 *UPDATE*:
 Since the first user study, we have determined that finding unused variables/classes/functions is too simple and not particularly related to the purpose of the analysis - we will instead focus on detecting unreachable branches. We have also realized that the tool outputs that we presented to the users were too complex and not realistic to achieve using a code analyzer. We will aim to only provide the line numbers or ranges of numbers that are unreachable.
+
+# Check-in 4
+**Status of implementation:**
+
+Everyone is writing their tests and implementations
+
+**Final user study:**
+
+We’re planning to do the user study with revisioned examples from previous user study and some new examples
+
+_**Revised Timeline:**_
+
+**Week 12 (Check-in 5)**
+- final user study
+- finish majority of implementation
+
+**Week 13**
+- finish project
+- make video
