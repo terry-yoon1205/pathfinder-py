@@ -18,26 +18,15 @@ Our main plan for the time being is just brainstorming ideas for the project, an
 
 # Check-in 2
 
-_**(UPDATED) Python Dead code finder**_
+_**(UPDATED) Python Unreachable Path Analyzer**_
 
-After consulting with the TA, we have decided to go with a static Python dead-code checker. It will search for redundant code that do not effect the outcome of a program's execution, as well as unreachable code.
+This tool will perform static analysis on Python code, attempting to detect branches that will never be traversed. By detecting unreachable paths, the tool will aid Python developers in cleaning up snippets of code that are unnecessary. In cases where the detected unreachable paths are supposed to be reachable (i.e. the result is unexpected), it will help in finding and resolving bugs in the code.
 
 The target demographic is for programmers who want a more sophisticated check on their code for potential dead code that is not caught by a linter or the compiler. 
 
-**Basic Checks**:
-- Redundant code
-
-**Control Flow Related Checks**:
-- Unreachable code 
-
-The new analysis tool's feature set addresses the concerns presented by the TA that the tool was too simplistic, and did not perform any kind of check or analysis effected by control flow.
-
-_**Division of Responsibilities**_
-
-The team has opted to keep the same teams, as the project shares a similar structure to Project 1 (With parser team doing extractor, and evaluator team doing datalog engine).
+This new analysis tool addresses the concerns presented by the TA that the tool was too simplistic and was rather concerned with meta-property analysis, and did not perform checks on properties affected by control flow.
 
 _**Roadmap**_
-
 
 **Week 10 (Check-in 3)**
 
@@ -167,3 +156,6 @@ Here is the feedback we recieved from the user:
 **Timeline**
 
 We have completed everything as planned for check-in 3 except begin writing tests. We will get on that as soon as possible.
+
+*UPDATE*:
+Since the first user study, we have determined that finding unused variables/classes/functions is too simple and not particularly related to the purpose of the analysis - we will instead focus on detecting unreachable branches. We have also realized that the tool outputs that we presented to the users were too complex and not realistic to achieve using a code analyzer. We will aim to only provide the line numbers or ranges of numbers that are unreachable.
