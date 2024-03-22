@@ -22,7 +22,7 @@ _**(UPDATED) Python Unreachable Path Analyzer**_
 
 This tool will perform static analysis on Python code, attempting to detect branches that will never be traversed. By detecting unreachable paths, the tool will aid Python developers in cleaning up snippets of code that are unnecessary. In cases where the detected unreachable paths are supposed to be reachable (i.e. the result is unexpected), it will help in finding and resolving bugs in the code.
 
-The target demographic is for programmers who want a more sophisticated check on their code for potential dead code that is not caught by a linter or the compiler. 
+This tool's results will be an optimistic over-approximation, as it may not always detect unreachable paths that are present. This is because we want to make sure any bugs or deletable code that we signal as existent is real, and not waste anyone's time with false positives.
 
 This new analysis tool addresses the concerns presented by the TA that the tool was too simplistic and was rather concerned with meta-property analysis, and did not perform checks on properties affected by control flow.
 
