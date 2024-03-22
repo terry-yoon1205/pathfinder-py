@@ -1,27 +1,36 @@
 import ast
 
+class State:
+    def __init__(self):
+        self.variables = []
+
+class Visitor(ast.NodeVisitor):
+    def __init__(self, state):
+        self.state = state
+
+    def visit_Name(self, node):
+        if isinstance(node.ctx, ast.Store):
+            self.state.variables.append(node.id)
+        self.generic_visit(node)
+
 def analyze_code(code):
     tree = ast.parse(code)
-
-    def check_unreachable(node):
-        if isinstance(node, (ast.Return, ast.Break, ast.Continue, ast.Raise)):
-            # Check if the statement is followed by more code
-            for sibling in ast.walk(node):
-                if sibling != node and not isinstance(sibling, ast.Pass):
-                    print(f"Unreachable code found after line {node.lineno}")
-
-    for node in ast.walk(tree):
-        if isinstance(node, ast.FunctionDef):
-            for statement in node.body:
-                check_unreachable(statement)
-        elif isinstance(node, ast.If):
-            check_unreachable(node)
+    state = State()
+    visitor = Visitor(state)
+    visitor.visit(tree)
+    print("Variables:", state.variables)
 
 code = """
+x = 1
+y = 2
+if x < 5:
+    z = x + y
+
+test_string = "test"
+
 def example_function():
     return 1
     print("This will never be reached")
-
 example_function()
 """
 
