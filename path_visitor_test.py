@@ -1,3 +1,4 @@
+import ast
 import unittest
 from path_visitor import UnreachablePathVisitor
 
@@ -18,7 +19,11 @@ class TestPathVisitor(unittest.TestCase):
         example_function()
         """
 
-        self.assertEqual(True, False)
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([10], visitor.output)
 
 
 if __name__ == '__main__':

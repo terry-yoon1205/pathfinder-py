@@ -4,6 +4,7 @@ import ast
 class UnreachablePathVisitor(ast.NodeVisitor):
     variables = {}
     function_nodes = {}
+    output = []     # line numbers
 
     """
     Root
