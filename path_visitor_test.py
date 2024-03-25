@@ -4,26 +4,35 @@ from path_visitor import UnreachablePathVisitor
 
 
 class TestPathVisitor(unittest.TestCase):
-    def test_simple(self):
+    def test_after_return(self):
         code = """
-        x = 1
-        y = 2
-        if x < 5:
-            z = x + y
-        
-        test_string = "test"
-        
-        def example_function():
+        def example():
             return 1
             print("This will never be reached")
-        example_function()
         """
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
 
-        self.assertListEqual([10], visitor.output)
+        self.assertListEqual([3], visitor.output)
+
+    def test_unreachable_if_block(self):
+        code = """
+        def example(x):
+            if x > 5:
+                return True
+            elif x > 3:
+                return False
+            else:
+                return True
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([4], visitor.output)
 
 
 if __name__ == '__main__':
