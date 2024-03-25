@@ -1,11 +1,13 @@
 import ast
 
+
 class State:
     def __init__(self):
         self.variables = []
         self.conditionals = {}
         self.loops = {}
         self.functions = {}
+
 
 class Visitor(ast.NodeVisitor):
     def __init__(self, state):
@@ -28,6 +30,7 @@ class Visitor(ast.NodeVisitor):
         self.state.functions[node.name] = node.lineno
         self.generic_visit(node)
 
+
 def analyze_code(code):
     tree = ast.parse(code)
     state = State()
@@ -38,6 +41,7 @@ def analyze_code(code):
     print("Conditionals:", state.conditionals)
     print("Loops:", state.loops)
     print("Functions:", state.functions)
+
 
 code = """
 x = 1
