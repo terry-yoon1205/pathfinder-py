@@ -1,10 +1,11 @@
 import ast
+import z3
 
 
 class UnreachablePathVisitor(ast.NodeVisitor):
-    variables = {}
+    variables = {}          # key: variable name, value: list of equations
     function_nodes = {}
-    output = []     # line numbers
+    output = []             # line numbers
 
     """
     Root
@@ -20,27 +21,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         # TODO
         return self.variables[node.id]
 
-    def visit_Attribute(self, node):
-        # TODO
-        self.generic_visit(node)
-
-    def visit_Subscript(self, node):
-        # TODO
-        self.generic_visit(node)
-
     def visit_Constant(self, node):
-        # TODO
-        self.generic_visit(node)
-
-    def visit_List(self, node):
-        # TODO
-        self.generic_visit(node)
-
-    def visit_Tuple(self, node):
-        # TODO
-        self.generic_visit(node)
-
-    def visit_Dict(self, node):
         # TODO
         self.generic_visit(node)
 
@@ -75,6 +56,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         value = self.visit(node.value)
 
         for target in node.targets:
+            if not isinstance(target, ast.Name):
+                continue
+
+            name = target.id
+            if name not in self.variables:
+                self.variables[name] = z3.Real(name)
+
             if isinstance(target, ast.Name):
                 self.variables[target.id] = value
 
