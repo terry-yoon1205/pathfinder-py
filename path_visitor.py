@@ -1,5 +1,5 @@
 import ast
-import z3
+from z3 import ArithRef, BoolRef, Const, RealSort, substitute
 from dataclasses import dataclass, field
 
 
@@ -10,22 +10,23 @@ class Var:
 
     name: The name of the variable.
     ref: The corresponding real-valued Z3 constant.
-    eqs: System of Z3 constraints containing this variable.
+    eqs: System of Z3 constraints ("applications") containing this variable.
     """
     name: str
-    ref: z3.ArithRef
-    eqs: list[z3.BoolRef] = field(default_factory=list)
+    ref: ArithRef
+    eqs: list[BoolRef] = field(default_factory=list)
 
 
 class UnreachablePathVisitor(ast.NodeVisitor):
-    variables: dict[str, Var] = {}      # key: variable name
-    function_nodes = {}                 # maybe use to traverse through function calls?
-    output: list[int] = []              # line numbers
-    ctx_vars: list[Var] = []            # current variable(s) we're working with (?)
+    variables: dict[str, Var] = {}  # key: variable name
+    function_nodes = {}  # maybe use to traverse through function calls?
+    output: list[int] = []  # line numbers (?)
+    ctx_vars: list[Var] = []  # current variable(s) we're working with (?)
 
     """
     Root
     """
+
     def visit_Module(self, node):
         # TODO
         self.generic_visit(node)
@@ -33,11 +34,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Literals and variable names
     """
+
     def visit_Name(self, node):
         src_var = self.variables[node.id]
 
         for var in self.ctx_vars:
-            var.eqs = [z3.substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
+            var.eqs = [substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
 
     def visit_Constant(self, node):
         try:
@@ -50,6 +52,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Expressions
     """
+
     def visit_Call(self, node):
         # TODO
         self.generic_visit(node)
@@ -73,10 +76,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Statements
     """
+
     def visit_Assign(self, node):
-        value = self.visit(node.value)
-        if value is None:
-            return
+        self.ctx_vars.clear()
 
         for target in node.targets:
             if not isinstance(target, ast.Name):
@@ -84,15 +86,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
             name = target.id
             if name not in self.variables:
-                self.variables[name] = Var(name, z3.Const(name, z3.RealSort()))
+                # create new variable
+                self.variables[name] = Var(name, Const(name, RealSort()))
 
-            var = self.variables[name]
-            if isinstance(value, Var):
-                pass
-            else:
-                # assign the constant value to the variable, and clear the constraints
-                var.value = value
-                var.eqs = []
+            self.ctx_vars.append(self.variables[name])
+
+        self.visit(node.value)
 
     def visit_AugAssign(self, node):
         # TODO
@@ -109,6 +108,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Definitions
     """
+
     def visit_FunctionDef(self, node):
         # TODO
         self.generic_visit(node)
@@ -116,6 +116,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Control flow
     """
+
     def visit_If(self, node):
         # TODO
         self.generic_visit(node)
@@ -134,3 +135,12 @@ class FunctionCollector(ast.NodeVisitor):
     #       through function calls.
     def visit_FunctionDef(self, node):
         return node.name  # stub
+
+
+if __name__ == "__main__":
+    # manual testing w/ debugger
+    code = 'x = 1\ny = 2\nz = x'
+
+    tree = ast.parse(code)
+    visitor = UnreachablePathVisitor()
+    visitor.visit(tree)
