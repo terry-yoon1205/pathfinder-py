@@ -178,3 +178,14 @@ _**Revised Timeline:**_
 **Week 13**
 - finish project
 - make video
+
+# Check-in 5
+##Status of final user study
+Our plan is to redo our inital user study with updated examples. However, it has not yet been done due to our implementation still being in progress.
+##Timeline
+The plan is to finish the majority of the implementation by the weekend/early next week, in order to complete the final user study and the video by the deadline. We are slightly behind our schedule from last check-in, but we will catch up through the long weekend.
+##Final video
+The final video will follow a similar format as the video for the first project, essentially
+1. explaining what the tool is for
+2. the user studies and the results
+3. some high level implementation details
