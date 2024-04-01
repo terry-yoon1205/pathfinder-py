@@ -36,7 +36,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        src_var = self.variables[node.id]
+        if self.variables:
+            src_var = self.variables[node.id]
 
         for var in self.ctx_vars:
             var.eqs = [substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
