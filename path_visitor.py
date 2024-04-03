@@ -1,5 +1,6 @@
 import ast
-from z3 import ArithRef, BoolRef, Const, RealSort, substitute
+from functools import reduce
+from z3 import *
 from dataclasses import dataclass, field
 
 
@@ -20,8 +21,10 @@ class Var:
 class UnreachablePathVisitor(ast.NodeVisitor):
     variables: dict[str, Var] = {}  # key: variable name
     function_nodes = {}  # maybe use to traverse through function calls?
+    ctx_vars: list[Var] = []  # current variable(s) we're working with
+    path_conds: list[list[BoolRef]] = []
+
     output: list[int] = []  # line numbers (?)
-    ctx_vars: list[Var] = []  # current variable(s) we're working with (?)
 
     """
     Root
@@ -38,16 +41,23 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_Name(self, node):
         src_var = self.variables[node.id]
 
-        for var in self.ctx_vars:
-            var.eqs = [substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
+        if self.is_assignment():
+            for var in self.ctx_vars:
+                var.eqs = [substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
+        else:
+            return [src_var], [src_var.ref > 0]
 
     def visit_Constant(self, node):
         try:
             val = float(node.value)
-            for var in self.ctx_vars:
-                var.eqs = [var.ref == val]
         except ValueError:
             return
+
+        if self.is_assignment():
+            for var in self.ctx_vars:
+                var.eqs = [var.ref == val]
+        else:
+            return [], [val > 0]
 
     """
     Expressions
@@ -78,8 +88,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Assign(self, node):
-        self.ctx_vars.clear()
-
         for target in node.targets:
             if not isinstance(target, ast.Name):
                 continue
@@ -92,6 +100,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             self.ctx_vars.append(self.variables[name])
 
         self.visit(node.value)
+        self.ctx_vars.clear()  # always clear at the end
 
     def visit_AugAssign(self, node):
         # TODO
@@ -118,8 +127,57 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_If(self, node):
-        # TODO
-        self.generic_visit(node)
+        # visit should return a list of variables and a list of constraints
+        cond_vars, if_conds = self.visit(node.test)
+        var_conds = [cond for var in cond_vars for cond in var.eqs]
+        path_conds = [cond for lst in self.path_conds for cond in lst]
+
+        solver = Solver()
+        solver.push()
+        for cond in var_conds + if_conds + path_conds:
+            solver.add(cond)
+
+        if solver.check() == unsat:
+            # no solution, if branch unreachable
+            first_line = node.body[0]
+            self.output.append(first_line.lineno)
+        else:
+            self.path_conds.append(if_conds)
+
+            for child in node.body:
+                self.visit(child)
+
+            self.path_conds.pop()
+
+        if len(node.orelse) == 0:   # no else branch, return
+            return
+
+        else_conds = [Not(cond) for cond in if_conds]
+
+        solver.pop()
+        for cond in var_conds + else_conds + path_conds:
+            solver.add(cond)
+
+        if solver.check() == unsat:
+            # no solution, else branch unreachable
+            first_line = node.orelse[0]
+            self.output.append(first_line.lineno)
+        else:
+            # spawn a copy of this visitor to traverse the else branch
+            else_visitor = UnreachablePathVisitor()
+            else_visitor.variables = self.variables.copy()
+            else_visitor.path_conds = self.path_conds.copy().append(else_conds)
+            else_visitor.output = self.output  # append to the same list instance
+
+            for child in node.orelse:
+                else_visitor.visit(child)
+
+            # merge the visitors together (maybe change to analyze all branches separately)
+            for var_name in self.variables:
+                if_result = simplify(And(*self.variables[var_name].eqs))
+                else_result = simplify(And(*else_visitor.variables[var_name].eqs))
+
+                self.variables[var_name].eqs = [Or(if_result, else_result)]
 
     def visit_For(self, node):
         # TODO
@@ -128,6 +186,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_While(self, node):
         # TODO
         self.generic_visit(node)
+
+    """
+    Helpers
+    """
+
+    def is_assignment(self):
+        return len(self.ctx_vars) > 0
 
 
 class FunctionCollector(ast.NodeVisitor):
@@ -138,8 +203,17 @@ class FunctionCollector(ast.NodeVisitor):
 
 
 if __name__ == "__main__":
-    # manual testing w/ debugger
-    code = 'x = 1\ny = 2\nz = x'
+    '''
+    for manual testing w/ debugger
+    
+    x = 1
+    y = 2
+    if y:
+        y = 3
+    else:
+        y = 1
+    '''
+    code = 'x = 1\ny = 2\nif y:\n    y = 3\nelse:\n    y = 1'
 
     tree = ast.parse(code)
     visitor = UnreachablePathVisitor()
