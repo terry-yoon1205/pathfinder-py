@@ -79,8 +79,52 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Compare(self, node):
-        # TODO
-        self.generic_visit(node)
+        prefix = 'temp'
+        idx = 0
+
+        # temporary variable will be created for each comparator
+        def new_temp_var():
+            nonlocal idx
+            name = prefix + str(idx)
+            idx += 1
+
+            return Var(name, Const(name, RealSort()))
+
+        temp_vars = []
+        eqs = []
+        comparators = [node.left] + node.comparators
+
+        for comparator in comparators:
+            self.ctx_vars.append(new_temp_var())
+            self.visit(comparator)
+            temp_vars.append(self.ctx_vars.pop())
+
+        for i in range(len(comparators) - 1):   # len(comparators) == len(node.ops) + 1
+            lhs = temp_vars[i].ref
+            rhs = temp_vars[i + 1].ref
+            op = node.ops[i]
+
+            match op:
+                case ast.Eq:
+                    eqs.append(lhs == rhs)
+                case ast.NotEq:
+                    eqs.append(lhs != rhs)
+                case ast.Lt:
+                    eqs.append(lhs < rhs)
+                case ast.LtE:
+                    eqs.append(lhs <= rhs)
+                case ast.Gt:
+                    eqs.append(lhs > rhs)
+                case ast.GtE:
+                    eqs.append(lhs >= rhs)
+                case _:
+                    # unsupported
+                    pass
+
+        if self.is_assignment():
+            ...
+        else:
+            ...
 
     """
     Statements
@@ -165,7 +209,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             # spawn a copy of this visitor to traverse the else branch
             else_visitor = UnreachablePathVisitor()
             else_visitor.variables = self.variables.copy()
-            else_visitor.path_conds = self.path_conds.copy().append(else_conds)
+            else_visitor.path_conds = self.path_conds.copy() + [else_conds]
             else_visitor.output = self.output  # append to the same list instance
 
             for child in node.orelse:
