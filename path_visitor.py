@@ -42,7 +42,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         if self.is_assignment():
             for var in self.ctx_vars:
-                var.eqs = [substitute(eq, (src_var.ref, var.ref)) for eq in src_var.eqs]
+                var.eqs = [substitute(var_eq, (src_var.ref, var.ref)) for var_eq in src_var.eqs]
         else:
             return [src_var], [src_var.ref > 0]
 
