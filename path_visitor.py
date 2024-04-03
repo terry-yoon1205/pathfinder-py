@@ -1,5 +1,4 @@
 import ast
-from functools import reduce
 from z3 import *
 from dataclasses import dataclass, field
 
