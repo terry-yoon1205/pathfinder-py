@@ -17,12 +17,40 @@ class Var:
     ref: ArithRef
     eqs: list[BoolRef] = field(default_factory=list)
 
+@dataclass
+class CurrentFunction:
+    """
+    Used to keep track of scope for return/raise related analysis
+
+    name: Name of the current function
+    end_no: Line number where the function ends
+    return_no: Line number of the return statement
+    """
+    name: str
+    end_no: int
+    return_no: int
 
 class UnreachablePathVisitor(ast.NodeVisitor):
     variables: dict[str, Var] = {}  # key: variable name
     function_nodes = {}  # maybe use to traverse through function calls?
     output: list[int] = []  # line numbers (?)
     ctx_vars: list[Var] = []  # current variable(s) we're working with (?)
+    curr_function: CurrentFunction = {}
+
+    """
+    Call for every visit
+    """
+    def generic_visit(self, node):
+        try:
+            return_no: int = self.curr_function.return_no
+            if node.lineno > return_no and return_no != -1:
+                if node.lineno not in self.output:
+                    self.output.append(node.lineno)
+        except:
+            # awful code but ignore nodes that dont have lineno
+            pass
+       
+        super().generic_visit(node)
 
     """
     Root
@@ -100,11 +128,11 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Return(self, node):
-        # TODO
+        self.curr_function.return_no = node.lineno
         self.generic_visit(node)
 
     def visit_Raise(self, node):
-        # TODO
+        self.curr_function.return_no = node.lineno
         self.generic_visit(node)
 
     """
@@ -112,6 +140,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_FunctionDef(self, node):
+        self.curr_function = CurrentFunction(node.name, node.end_lineno, -1)
         # TODO
         self.generic_visit(node)
 
