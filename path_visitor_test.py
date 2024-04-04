@@ -98,6 +98,37 @@ class TestPathVisitor(unittest.TestCase):
 
         self.assertListEqual([3], visitor.output)
 
+    def test_unreachable_while_complicated(self):
+        code = """def example(x):
+                        y = 69
+                        while (x * (y - y + x - x) != 0): 
+                            print("hello")
+                        return 5
+             """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([3], visitor.output)
+
+    def test_unreachable_while_complicated_func_call(self):
+        code = """def example(x):
+                   return x
+        
+                  def example2(x):
+                        y = 69
+                        while (example(x) - x != 0): 
+                            print("hello")
+                        return 5
+             """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([3], visitor.output)
+
     def test_unreachable_code_after_while(self):
         code = """def example(x):
                         i = 5
