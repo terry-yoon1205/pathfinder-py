@@ -173,8 +173,47 @@ class TestPathVisitor(unittest.TestCase):
 
         self.assertListEqual([4], visitor.output)
 
+    def test_unreachable_unary_neg(self):
+        code = """def example(x):
+                    y = 5
+                    if -y > 0:
+                        return True
+                    return False
+        """
 
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
 
+        self.assertListEqual([4], visitor.output)
+
+    def test_unreachable_unary_pos(self):
+        code = """def example(x):
+                    y = +5
+                    if y == 5:
+                        return True
+                    return False
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([5], visitor.output)
+
+    def test_unreachable_unary_invert(self):
+        code = """def example(x):
+                    y = ~5
+                    if y == -6:
+                        return True
+                    return False
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([5], visitor.output)
 
 
 
