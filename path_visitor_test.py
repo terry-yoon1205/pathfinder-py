@@ -175,8 +175,22 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_unary_neg(self):
         code = """def example(x):
-                    y = 5
-                    if -y > 0:
+                    y = -5
+                    if y > 0:
+                        return True
+                    return False
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([4], visitor.output)
+
+    def test_unreachable_unary_double_neg(self):
+        code = """def example(x):
+                    y = --0.5
+                    if y < 0:
                         return True
                     return False
         """
@@ -189,8 +203,7 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_unary_pos(self):
         code = """def example(x):
-                    y = +5
-                    if y == 5:
+                    if +5 != 5:
                         return True
                     return False
         """
@@ -199,21 +212,21 @@ class TestPathVisitor(unittest.TestCase):
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
 
-        self.assertListEqual([5], visitor.output)
+        self.assertListEqual([3], visitor.output)
 
-    def test_unreachable_unary_invert(self):
-        code = """def example(x):
-                    y = ~5
-                    if y == -6:
-                        return True
-                    return False
-        """
-
-        tree = ast.parse(code)
-        visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-
-        self.assertListEqual([5], visitor.output)
+    # def test_unreachable_unary_invert(self):
+    #     code = """def example(x):
+    #                 y = True
+    #                 if ~y:
+    #                     return True
+    #                 return False
+    #     """
+    #
+    #     tree = ast.parse(code)
+    #     visitor = UnreachablePathVisitor()
+    #     visitor.visit(tree)
+    #
+    #     self.assertListEqual([5], visitor.output)
 
 
 

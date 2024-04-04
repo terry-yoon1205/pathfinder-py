@@ -44,7 +44,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_UnaryOp(self, node):
         # TODO
-        self.generic_visit(node)
+        op = node.op
+        operand = node.operand
+        value = self.visit(operand)
+        match type(op):
+            case ast.USub:
+                result = -value
+            case ast.UAdd:
+                result = +value
+            # case ast.Invert:
+            #     result = ~value
+            case _:     # Unsupported
+                return None
+
+        return result
 
     def visit_BinOp(self, node):
         # TODO
