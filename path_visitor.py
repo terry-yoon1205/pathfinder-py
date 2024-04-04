@@ -15,6 +15,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     path_conds: list[BoolRef] = []
     output: list[int] = []
 
+    symbol_prefix = 'var'
+    symbol_idx = 0
+
     """
     Root
     """
@@ -108,9 +111,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     Definitions
     """
     def visit_FunctionDef(self, node):
-        # TODO: create a symbolic variable (with some arbitrary name) for each function argument
-        #       before traversing the function.
-        self.generic_visit(node)
+        for arg in node.args.args:
+            name = arg.arg
+            self.variables[name] = self.new_symbolic_var()
+
+        for child in node.body:
+            self.visit(child)
 
     """
     Control flow
@@ -119,6 +125,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if_cond = self.visit(node.test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
+
+        else_cond = simplify(Not(if_cond))
+
+        # spawn a copy of this visitor to traverse the else branch
+        else_visitor = UnreachablePathVisitor()
+        else_visitor.variables = self.variables.copy()
+        else_visitor.path_conds = self.path_conds.copy()
+        else_visitor.output = self.output  # append to the same list instance
+        else_visitor.symbol_idx = self.symbol_idx
 
         solver = Solver()
         for cond in self.path_conds:
@@ -133,7 +148,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             self.output.append(first_line.lineno)
         else:
             self.path_conds.append(if_cond)
-
             for child in node.body:
                 self.visit(child)
 
@@ -141,8 +155,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         if len(node.orelse) == 0:   # no else branch, return
             return
-
-        else_cond = Not(if_cond)
 
         solver.pop()
         solver.add(else_cond)
@@ -152,12 +164,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             first_line = node.orelse[0]
             self.output.append(first_line.lineno)
         else:
-            # spawn a copy of this visitor to traverse the else branch
-            else_visitor = UnreachablePathVisitor()
-            else_visitor.variables = self.variables.copy()
-            else_visitor.path_conds = self.path_conds.copy() + [else_cond]
-            else_visitor.output = self.output  # append to the same list instance
-
+            else_visitor.path_conds.append(else_cond)
             for child in node.orelse:
                 else_visitor.visit(child)
 
@@ -166,6 +173,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 if_result = self.variables[var_name]
                 else_result = else_visitor.variables[var_name]
 
+                # TODO: fix this
                 self.variables[var_name] = Or(if_result, else_result)
 
     def visit_For(self, node):
@@ -175,6 +183,14 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_While(self, node):
         # TODO
         self.generic_visit(node)
+
+    """
+    Helpers
+    """
+    def new_symbolic_var(self):
+        var = Const(self.symbol_prefix + str(self.symbol_idx), RealSort())
+        self.symbol_idx += 1
+        return var
 
 
 class FunctionCollector(ast.NodeVisitor):
@@ -188,14 +204,13 @@ if __name__ == "__main__":
     '''
     for manual testing w/ debugger
     
-    x = 1
-    y = 2
-    if x < y < 4:
-        y = 3
-    else:
-        y = 1
+    def func(x, y):
+        if y < x:
+            x = y
+        else:
+            x = 1
     '''
-    code = 'x = 1\ny = 2\nif x < y < 4:\n    y = 3\nelse:\n    y = 1'
+    code = 'def func(x, y):\n    if y < x:\n        x = y\n    else:\n        x = 1'
 
     tree = ast.parse(code)
     visitor = UnreachablePathVisitor()
