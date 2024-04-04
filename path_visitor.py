@@ -173,8 +173,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 if_result = self.variables[var_name]
                 else_result = else_visitor.variables[var_name]
 
-                # TODO: fix this
-                self.variables[var_name] = Or(if_result, else_result)
+                # TODO: this currently blindly chooses the result of if branch, will need some
+                #       more implementation changes to merge correctly (or make it traverse separately)
+                self.variables[var_name] = if_result
 
     def visit_For(self, node):
         # TODO
