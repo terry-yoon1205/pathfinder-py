@@ -44,8 +44,44 @@ def example2():
         self.visitor.visit(tree)
         self.assertListEqual([3, 4, 5, 6], self.visitor.output)
 
+    def test_return_if_cond(self):
+        code = """def example(x):
+            if True: 
+                return x;
+                print(x, " hello!")
+            return 6
+        """
 
+        tree = ast.parse(code)
+        self.visitor.visit(tree)
+
+        self.assertListEqual([4, 5], self.visitor.output)
+
+    def test_raise_single_location(self):
+        code = """def example():
+            x = 0
+            raise Exception("Can't divide by 0")
+            y = 10 / x
+        """
+        tree = ast.parse(code)
+        self.visitor.visit(tree)
+
+        self.assertListEqual([4], self.visitor.output)
+
+    def test_raise_multiple_location(self):
+        code = """def example():
+            x = 0
+            if x == 0:
+                raise Exception("Can't divide by 0")
+                x = 1
+            y = 10 / x
+        """
+        tree = ast.parse(code)
+        self.visitor.visit(tree)
+
+        self.assertListEqual([5, 6], self.visitor.output)
     
+
 
 if __name__ == '__main__':
     unittest.main()

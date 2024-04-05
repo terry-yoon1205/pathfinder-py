@@ -1,18 +1,24 @@
 import ast
+from dataclasses import dataclass
 from z3 import *
 
 @dataclass
-class CurrentFunction:
+class CurrentScope:
     """
-    Used to keep track of scope for return/raise related analysis
+    Used to keep track of scope for return/raise related analysis.
+    For naming sake, return here refers to both return and raise
 
     name: Name of the current function
     end_no: Line number where the function ends
     return_no: Line number of the return statement
+    return_exists: flag to determine if return statement exists in a code block
     """
     name: str
     end_no: int
     return_no: int
+    return_exists: bool
+    edge_cases: list[int]
+    
 
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
@@ -26,10 +32,28 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     func_nodes = {}
     path_conds: list[BoolRef] = []
     output: list[int] = []
-    curr_function: CurrentFunction = {}
+    scope: CurrentScope = {}
 
     symbol_prefix = 'var'
     symbol_idx = 0
+
+    """
+    Call for every visit
+    """
+
+    def generic_visit(self, node):
+        try:
+            return_no: int = self.scope.return_no
+            edge: list[int] = self.scope.edge_cases
+            if node.lineno not in self.output:
+                if node.lineno in edge:
+                    self.output = sorted(list(set(self.output + edge)))
+                elif node.lineno > return_no and return_no != -1:
+                    self.output.append(node.lineno)
+        except:
+            pass
+
+        super().generic_visit(node)
 
     """
     Root
@@ -41,8 +65,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
     Literals and variable names
     """
+
     def visit_Name(self, node):
-        return self.variables[node.id]
+        if node.id in self.variables:
+            return self.variables[node.id]
 
     def visit_Constant(self, node):
         try:
@@ -113,17 +139,21 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Return(self, node):
-        self.curr_function.return_no = node.lineno
+        self.scope.return_no = node.lineno
+        self.scope.return_exists = True
         self.generic_visit(node)
 
     def visit_Raise(self, node):
-        self.curr_function.return_no = node.lineno
+        self.scope.return_no = node.lineno
+        self.scope.return_exists = True
         self.generic_visit(node)
 
     """
     Definitions
     """
     def visit_FunctionDef(self, node):
+        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])
+        
         for arg in node.args.args:
             name = arg.arg
             self.variables[name] = self.new_symbolic_var()
@@ -135,6 +165,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     Control flow
     """
     def visit_If(self, node):
+        self.scope = CurrentScope("if", node.end_lineno, -1, False, [])
         if_cond = self.visit(node.test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
@@ -167,6 +198,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             self.path_conds.pop()
 
         if len(node.orelse) == 0:   # no else branch, return
+            self.check_for_return_raise(node)
             return
 
         solver.pop()
@@ -189,11 +221,19 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 # TODO: fix this
                 self.variables[var_name] = Or(if_result, else_result)
 
+
     def visit_For(self, node):
+        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])
         # TODO
+
+        # for case where code block runs, add this
+        self.check_for_return_raise(node)
+
+        
         self.generic_visit(node)
 
     def visit_While(self, node):
+        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])
         # TODO
         self.generic_visit(node)
 
@@ -204,7 +244,14 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         var = Const(self.symbol_prefix + str(self.symbol_idx), RealSort())
         self.symbol_idx += 1
         return var
-
+    
+    def check_for_return_raise(self, node):
+        scope = self.scope
+        if scope.return_exists:    # return statement inside if block
+            scope.return_exists = False
+            scope.edge_cases.append(node.end_lineno + 1)
+            if scope.return_no < scope.end_no:
+                scope.edge_cases.append(scope.return_no + 1)
 
 class FunctionCollector(ast.NodeVisitor):
     # TODO: we can maybe use another visitor to collect FunctionDef nodes, so we can traverse
