@@ -3,8 +3,6 @@ import unittest
 from path_visitor import UnreachablePathVisitor
 
 
-
-
 class TestPathVisitor(unittest.TestCase):
     def test_after_return(self):
         code = """def example():
@@ -42,7 +40,7 @@ class TestPathVisitor(unittest.TestCase):
                     elif y > 15:
                         return False;
                 elif x > 6:
-                    return False;  
+                    return False;
                 else:
                     return True
             """
@@ -58,7 +56,7 @@ class TestPathVisitor(unittest.TestCase):
                 if x > 5:
                     return True;
                 elif x > 4:
-                    return False;  
+                    return False;
                 else:
                     return True
             """
@@ -87,7 +85,7 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_while_simple(self):
         code = """def example(x):
-                        while (False): 
+                        while (False):
                             print("hello")
                         return 5
              """
@@ -101,7 +99,7 @@ class TestPathVisitor(unittest.TestCase):
     def test_unreachable_code_after_while(self):
         code = """def example(x):
                         i = 5
-                        while (True): 
+                        while (True):
                            i += 1
                            if i > 15:
                              print("not yet")
@@ -118,7 +116,7 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_while_else(self):
         code = """def example(x):
-                        while (True): 
+                        while (True):
                             break
                         else:
                             return 11
@@ -134,7 +132,7 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_for_simple(self):
         code = """def example(x):
-                        for i in range(0, 0): 
+                        for i in range(0, 0):
                            print("hello!")
                         return 6
                     """
@@ -147,7 +145,7 @@ class TestPathVisitor(unittest.TestCase):
 
     def test_unreachable_for_return(self):
         code = """def example(x):
-                        for i in range(0, 11): 
+                        for i in range(0, 11):
                            return x;
                            print(x, " hello!")
                         return 6
@@ -162,7 +160,7 @@ class TestPathVisitor(unittest.TestCase):
     def test_unreachable_foreach(self):
         code = """def example(x):
                         numbers = []
-                        for num in numbers: 
+                        for num in numbers:
                            print(num, " hello!")
                         return numbers
                     """
@@ -173,10 +171,115 @@ class TestPathVisitor(unittest.TestCase):
 
         self.assertListEqual([4], visitor.output)
 
+    def test_call_to_undefined_function(self):
+        code = """def some_function():
+                    undefined_function()
+                """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        self.assertIn(2, visitor.output, "The call to an undefined function should be detected as unrunnable")
 
+    def test_call_with_extra_parameters(self):
+        code = """  
+def another_function(x):
+    return x
 
+def some_function():
+    another_function(1, 2)
+                """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
 
+        self.assertIn(6, visitor.output)
 
+    def test_call_with_less_parameters(self):
+        code = """  
+def another_function(x, y):
+    return x
+
+def some_function():
+    another_function(1)
+                        """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertIn(6, visitor.output)
+
+    def test_call_with_none_parameters(self):
+        code = """
+def another_function(x, y):
+    x+=1
+    return x + y
+
+def some_function():
+    print("2")
+    another_function(None, 3)
+                    """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertIn(8, visitor.output, "None detected")
+
+    def test_call_with_uninitialized_variable_parameters(self):
+        code = """ 
+def another_function(x, y):
+    return x + y
+
+def some_function():
+    another_function(x, 2)
+                            """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertIn(6, visitor.output)
+
+    def test_call_with_with_If(self):
+        code = """  
+def another_function(x):
+    return x
+
+def some_function():
+    if (False):
+        another_function(1, 2)
+        another_function(None)
+    x = 1+2
+                        """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        self.assertIn(7, visitor.output)
+
+    def test_call_with_with_for(self):
+        code = """  
+def another_function(x,y):
+    return x
+
+def some_function():
+    for i in range(2):
+        another_function(1, 2)
+        another_function(None)
+    x = 1+2
+                        """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        self.assertIn(8, visitor.output)
+#     def test_call_complex(self):
+#         code = """x = Int('x')
+# y = Int('y')
+# f = Function('f', IntSort(), IntSort())
+# s = Solver()
+# s.add(f(f(x)) == x, f(x) == y, x != y)"""
+#         tree = ast.parse(code)
+#         visitor = UnreachablePathVisitor()
+#         visitor.visit(tree)
+#         print(visitor.output)
+#         self.assertIn(0, visitor.output)
 
 if __name__ == '__main__':
     unittest.main()
