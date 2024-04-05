@@ -129,7 +129,6 @@ class TestPathVisitor(unittest.TestCase):
 
         self.assertListEqual([5], visitor.output)
 
-
     def test_unreachable_for_simple(self):
         code = """def example(x):
                         for i in range(0, 0):
@@ -269,6 +268,8 @@ def some_function():
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
         self.assertIn(8, visitor.output)
+
+
 #     def test_call_complex(self):
 #         code = """x = Int('x')
 # y = Int('y')

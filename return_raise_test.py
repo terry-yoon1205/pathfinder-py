@@ -31,7 +31,6 @@ def example2():
         self.visitor.visit(tree)
         self.assertListEqual([3, 6], self.visitor.output)
 
-
     def test_return_multi_line(self):
         code = """def example():
             return 1
@@ -80,7 +79,6 @@ def example2():
         self.visitor.visit(tree)
 
         self.assertListEqual([5, 6], self.visitor.output)
-    
 
 
 if __name__ == '__main__':

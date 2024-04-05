@@ -1,5 +1,5 @@
 import ast
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from z3 import *
 import builtins
 
@@ -8,7 +8,7 @@ import builtins
 class CurrentScope:
     """
     Used to keep track of scope for return/raise related analysis.
-    For naming sake, return here refers to both return and raise
+    For naming's sake, return here refers to both return and raise
 
     name: Name of the current function
     end_no: Line number where the function ends
@@ -17,10 +17,11 @@ class CurrentScope:
     """
     name: str
     end_no: int
-    return_no: int
-    return_exists: bool
-    edge_cases: list[int]
-    
+    return_no: int = -1
+    return_exists: bool = False
+    edge_cases: list[int] = field(default_factory=list)
+
+
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
     variables: a dictionary mapping variable names to its symbolic representation.
@@ -49,7 +50,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             if node.lineno not in self.output:
                 if node.lineno in edge:
                     self.output = sorted(list(set(self.output + edge)))
-                elif node.lineno > return_no and return_no != -1:
+                elif node.lineno > return_no != -1:
                     self.output.append(node.lineno)
         except:
             pass
@@ -61,7 +62,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Module(self, node):
-        # TODO
         self.func_nodes.update(analyze_code(node))
         self.generic_visit(node)
 
@@ -70,10 +70,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        if (node.id not in self.variables):
+        if node.id not in self.variables:
             return "temp"
         return self.variables[node.id]
-
 
     def visit_Constant(self, node):
         try:
@@ -190,13 +189,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_FunctionDef(self, node):
-        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])     
-        # function_name = node.name
-        # parameters = [param.arg for param in node.args.args]  # Collecting parameter names
-        # start_line = node.lineno
-        # self.func_nodes[function_name] = node
-        #     # FunctionInfo(name=function_name, node=node, parameters=parameters,
-        #     #                                               start_line=start_line)
+        self.scope = CurrentScope(node.name, node.end_lineno)
 
         for arg in node.args.args:
             name = arg.arg
@@ -210,7 +203,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_If(self, node):
-        self.scope = CurrentScope("if", node.end_lineno, -1, False, [])
+        self.scope = CurrentScope("if", node.end_lineno)
+
         if_cond = self.visit(node.test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
@@ -242,7 +236,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
             self.path_conds.pop()
 
-        if len(node.orelse) == 0:   # no else branch, return
+        if len(node.orelse) == 0:  # no else branch, return
             self.check_for_return_raise(node)
             return
 
@@ -267,19 +261,17 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 #       more implementation changes to merge correctly (or make it traverse separately)
                 self.variables[var_name] = if_result
 
-
     def visit_For(self, node):
-        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])
+        self.scope = CurrentScope(node.name, node.end_lineno)
         # TODO
 
         # for case where code block runs, add this
         self.check_for_return_raise(node)
 
-        
         self.generic_visit(node)
 
     def visit_While(self, node):
-        self.scope = CurrentScope(node.name, node.end_lineno, -1, False, [])
+        self.scope = CurrentScope(node.name, node.end_lineno)
         # TODO
         self.generic_visit(node)
 
@@ -291,19 +283,17 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         var = Const(self.symbol_prefix + str(self.symbol_idx), RealSort())
         self.symbol_idx += 1
         return var
-    
+
     def check_for_return_raise(self, node):
         scope = self.scope
-        if scope.return_exists:    # return statement inside if block
+        if scope.return_exists:  # return statement inside if block
             scope.return_exists = False
             scope.edge_cases.append(node.end_lineno + 1)
             if scope.return_no < scope.end_no:
                 scope.edge_cases.append(scope.return_no + 1)
 
-class FunctionCollector(ast.NodeVisitor):
-    # TODO: we can maybe use another visitor to collect FunctionDef nodes, so we can traverse
-    #       through function calls.
 
+class FunctionCollector(ast.NodeVisitor):
     def __init__(self):
         self.called_functions = {}
         self.called_functionsNames = set()
