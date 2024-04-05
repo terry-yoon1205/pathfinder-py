@@ -215,13 +215,14 @@ def another_function(x, y):
     return x + y
 
 def some_function():
+    print("2")
     another_function(None, 3)
                     """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
 
-        self.assertIn(7, visitor.output, "None detected")
+        self.assertIn(8, visitor.output, "None detected")
 
     def test_call_with_uninitialized_variable_parameters(self):
         code = """ 
@@ -253,6 +254,21 @@ def some_function():
         visitor.visit(tree)
         self.assertIn(7, visitor.output)
 
+    def test_call_with_with_for(self):
+        code = """  
+def another_function(x,y):
+    return x
+
+def some_function():
+    for i in range(2):
+        another_function(1, 2)
+        another_function(None)
+    x = 1+2
+                        """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        self.assertIn(8, visitor.output)
 #     def test_call_complex(self):
 #         code = """x = Int('x')
 # y = Int('y')
