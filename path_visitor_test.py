@@ -228,6 +228,19 @@ class TestPathVisitor(unittest.TestCase):
     #
     #     self.assertListEqual([5], visitor.output)
 
+    def test_unreachable_unary_not(self):
+        code = """def example(x):
+                    y = True
+                    if not y:
+                        return True
+                    return False
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([4], visitor.output)
 
 
 if __name__ == '__main__':

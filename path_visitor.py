@@ -10,10 +10,11 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     path_conds: a stack of boolean expressions representing path conditions.
     output: a list of line numbers that are deemed unreachable.
     """
-    variables: dict[str, ArithRef | BoolRef] = {}
-    func_nodes = {}
-    path_conds: list[BoolRef] = []
-    output: list[int] = []
+    def __init__(self):
+        self.variables: dict[str, ArithRef | BoolRef] = {}
+        self.func_nodes = {}
+        self.path_conds: list[BoolRef] = []
+        self.output: list[int] = []
 
     """
     Root
@@ -30,7 +31,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_Constant(self, node):
         try:
-            return RealVal(float(node.value))
+            if isinstance(node.value, bool):
+                return BoolVal(node.value)
+            else:
+                return RealVal(float(node.value))
         except ValueError:
             # unsupported value
             return None
@@ -43,15 +47,17 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_UnaryOp(self, node):
-        # TODO
         op = node.op
         operand = node.operand
         value = self.visit(operand)
+
         match type(op):
             case ast.USub:
                 result = -value
             case ast.UAdd:
                 result = +value
+            case ast.Not:
+                result = Not(value)
             # case ast.Invert:
             #     result = ~value
             case _:     # Unsupported
