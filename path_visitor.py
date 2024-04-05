@@ -1,6 +1,6 @@
 import ast
 from z3 import *
-
+import builtins
 
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
@@ -32,6 +32,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
+        if (node.id not in self.variables):
+            return "temp"
         return self.variables[node.id]
 
     def visit_Constant(self, node):
@@ -64,12 +66,18 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 if None in prepared_args:
                     self.output.append(node.lineno)
 
-                if len(handler.args.args) != len(prepared_args):
+                if hasattr(handler.args, 'args'):
+                    num_required_arguments = len(handler.args.args)
+                else:
+                    num_required_arguments = len(handler.args)
+
+                if num_required_arguments != len(prepared_args):
                     self.output.append(node.lineno)
+                return prepared_args
 
             else:
                 self.output.append(node.lineno)
-                print(f"Warning: Function {func_name} not supported for analysis.")
+                print(f"Warning: Function {func_name} not defined, added to output.")
         else:
             self.generic_visit(node)
 
@@ -245,6 +253,7 @@ class FunctionCollector(ast.NodeVisitor):
     def visit_FunctionDef(self, node):
         self.defined_functionNames.add(node.name)
         self.defined_function[node.name] = node
+        self.generic_visit(node)
         # return node.name  # stub
 
     def visit_Call(self, node):
@@ -271,8 +280,7 @@ def analyze_code(tree):
     called_functionNames = func_collector.called_functionsNames
     defined_functionNames = func_collector.defined_functionNames
 
-    built_in_functions = set(dir(__builtins__))
-
+    built_in_functions = set(dir(builtins))
     valid_calls = called_functionNames & (defined_functionNames | built_in_functions | z3_functions)
 
     filtered_functions = {k: called_functions[k] for k in valid_calls if k in called_functions}
