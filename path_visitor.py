@@ -1,6 +1,8 @@
 import ast
 from z3 import *
+from z3 import Solver
 import builtins
+
 
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
@@ -10,13 +12,16 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     path_conds: a stack of boolean expressions representing path conditions.
     output: a list of line numbers that are deemed unreachable.
     """
-    variables: dict[str, ArithRef | BoolRef] = {}
-    func_nodes = {}
-    path_conds: list[BoolRef] = []
-    output: list[int] = []
 
-    symbol_prefix = 'var'
-    symbol_idx = 0
+    def __init__(self):
+        self.variables: dict[str, ArithRef | BoolRef] = {}
+        self.func_nodes = {}
+        self.path_conds: list[BoolRef] = []
+        self.output: list[int] = []
+        self.defined_functions = {}
+
+        self.symbol_prefix = 'var'
+        self.symbol_idx = 0
 
     """
     Root
@@ -59,6 +64,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                         prepared_args.append(self.variables[arg.id])
                     elif isinstance(arg, ast.Constant):
                         prepared_args.append(arg.value)
+                    elif isinstance(arg, ast.Call):
+                        prepared_args.append(arg.func)
                     else:
                         self.generic_visit(arg)
 
@@ -68,11 +75,14 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
                 if hasattr(handler.args, 'args'):
                     num_required_arguments = len(handler.args.args)
+                    count_func = len([elem for elem in handler.args.args if isinstance(elem, ast.Call)])
                 else:
                     num_required_arguments = len(handler.args)
+                    count_func = len([elem for elem in handler.args if isinstance(elem, ast.Call)])
 
                 if num_required_arguments != len(prepared_args):
-                    self.output.append(node.lineno)
+                    if (num_required_arguments - count_func) != len(prepared_args):
+                        self.output.append(node.lineno)
                 return prepared_args
 
             else:
@@ -224,6 +234,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_For(self, node):
         # TODO
         self.generic_visit(node)
+        # self.visit(node.iter)
 
     def visit_While(self, node):
         # TODO
@@ -240,60 +251,83 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
 
 class FunctionCollector(ast.NodeVisitor):
-    # TODO: we can maybe use another visitor to collect FunctionDef nodes, so we can traverse
-    #       through function calls.
-
     def __init__(self):
+        self.current_class = None
         self.called_functions = {}
         self.called_functionsNames = set()
         self.defined_function = {}
         self.defined_functionNames = set()
+        self.constructor_calls = {}
+        self.instance_calls = {}
+        self.defined_class = {}
+
+    def visit_Assign(self, node):
+        # Check for constructor calls (e.g. s.add())
+        if isinstance(node.value, ast.Call) and isinstance(node.value.func, ast.Name):
+            for target in node.targets:
+                if isinstance(target, ast.Name):
+                    self.constructor_calls[target.id] = node.value.func.id
+        self.generic_visit(node)
+
+    def visit_ClassDef(self, node):
+        self.current_class = node.name
+        self.defined_class[node.name] = []
+        self.generic_visit(node)
+        self.current_class = None
 
     def visit_FunctionDef(self, node):
+        for class_name in self.defined_class:
+            if self.current_class == class_name:
+                self.defined_class[class_name].append(node.name)
         self.defined_functionNames.add(node.name)
         self.defined_function[node.name] = node
         self.generic_visit(node)
-        # return node.name  # stub
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name):
             self.called_functions[node.func.id] = node
             self.called_functionsNames.add(node.func.id)
         else:
-            if isinstance(node.func, ast.Attribute):
-                # dir(Solver)
-                # TODO: add attribute object class defined functions
-                self.called_functions[node.func.attr] = node
-                self.called_functionsNames.add(node.func.attr)
+            if isinstance(node.func, ast.Attribute) and isinstance(node.func.value, ast.Name):
+                obj = node.func.value.id
+                method = node.func.attr
+                if obj in self.constructor_calls:
+                    self.instance_calls[self.constructor_calls[obj]] = method
+                    self.called_functions[node.func.attr] = node
+                    self.called_functionsNames.add(node.func.attr)
         self.generic_visit(node)
 
 
 def analyze_code(tree):
+    built_in_functions = set(dir(builtins))
     z3_contents = dir(z3)
     z3_functions = set([name for name in z3_contents if callable(getattr(z3, name))])
 
     func_collector = FunctionCollector()
-
     func_collector.visit(tree)
-    called_functions = func_collector.called_functions
-    called_functionNames = func_collector.called_functionsNames
-    defined_functionNames = func_collector.defined_functionNames
 
-    built_in_functions = set(dir(builtins))
-    valid_calls = called_functionNames & (defined_functionNames | built_in_functions | z3_functions)
+    called_functions = func_collector.called_functions
+    called_function_names = func_collector.called_functionsNames
+    defined_function_names = func_collector.defined_functionNames
+    defined_instance_methods = set(name for name in func_collector.constructor_calls)
+    defined_class_names = set(name for name in func_collector.defined_class)
+    for method in func_collector.instance_calls:
+        try:
+            attribute_of_function = getattr(z3, method)
+            if attribute_of_function:
+                if callable(attribute_of_function):
+                    defined_instance_methods.update(dir(attribute_of_function))
+        except AttributeError:
+            if method in func_collector.defined_class:
+                defined_instance_methods.update(func_collector.defined_class[method])
+
+    valid_calls = called_function_names & (defined_function_names | built_in_functions
+                                           | z3_functions | defined_instance_methods | defined_class_names)
 
     filtered_functions = {k: called_functions[k] for k in valid_calls if k in called_functions}
     filtered_functions.update(func_collector.defined_function)
+
     return filtered_functions
-
-
-# @dataclass
-# class FunctionInfo:
-#     name: str
-#     node: ast.FunctionDef
-#     parameters: List[str] = field(default_factory=list)
-#     start_line: int = 0
-
 
 if __name__ == "__main__":
     '''
