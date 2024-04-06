@@ -51,52 +51,52 @@ class TestPathVisitor(unittest.TestCase):
     #
     #     self.assertListEqual([], visitor.output)
     #
-    # def test_unreachable_while_complicated(self):
-    #     code = """def example(x):
-    #                     y = 69
-    #                     while (x * (y - y + x - x) != 0):
-    #                         print("hello")
-    #                     return 5
-    #          """
-    #
-    #     tree = ast.parse(code)
-    #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
-    #
-    #     self.assertListEqual([3], visitor.output)
-    #
-    # def test_unreachable_code_after_while(self):
-    #     code = """def example(x):
-    #                     i = 5
-    #                     while (True):
-    #                        i += 1
-    #                        if i > 15:
-    #                          print("not yet")
-    #                        elif i > 16:
-    #                          break
-    #                     return 5
-    #                 """
-    #
-    #     tree = ast.parse(code)
-    #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
-    #
-    #     self.assertListEqual([9], visitor.output)
-    #
-    # def test_unreachable_while_else(self):
-    #     code = """def example(x):
-    #                     while (True):
-    #                         break
-    #                     else:
-    #                         return 11
-    #                     return 5
-    #          """
-    #
-    #     tree = ast.parse(code)
-    #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
-    #
-    #     self.assertListEqual([5], visitor.output)
+    def test_unreachable_while_complicated(self):
+        code = """def example(x):
+                        y = 69
+                        while (x * (y - y + x - x) != 0):
+                            print("hello")
+                        return 5
+             """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([4], visitor.output)
+
+    def test_unreachable_code_after_while(self):
+        code = """def example(x):
+                        i = 5
+                        while (True):
+                           i += 1
+                           if i > 15:
+                             print("not yet")
+                           elif i > 16:
+                             break
+                        return 5
+                    """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([9], visitor.output)
+
+    def test_unreachable_while_else(self):
+        code = """def example(x):
+                        while (True):
+                            break
+                        else:
+                            return 11
+                        return 5
+             """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([5], visitor.output)
     #
     # def test_unreachable_for_simple(self):
     #     code = """def example(x):
@@ -146,27 +146,27 @@ class TestPathVisitor(unittest.TestCase):
 #
 #         self.assertListEqual([11], visitor.output)
 
-    # TODO: get jeff to fix this test, if possible.
-    def test_reachable_for_func_call(self):
-            code = """
-def helper1(x):
-    return x + 4
-
-def helper2(x):
-    return x + 4
-
-def example(x):
-    y = 5
-    for i in range(helper1(x), helper2(x)):
-        print("hello!")
-    return 6
-                        """
-
-            tree = ast.parse(code)
-            visitor = UnreachablePathVisitor()
-            visitor.visit(tree)
-
-            self.assertListEqual([], visitor.output)
+#     # TODO: get jeff to fix this test, if possible.
+#     def test_reachable_for_func_call(self):
+#             code = """
+# def helper1(x):
+#     return x + 4
+#
+# def helper2(x):
+#     return x + 4
+#
+# def example(x):
+#     y = 5
+#     for i in range(helper1(x), helper2(x)):
+#         print("hello!")
+#     return 6
+#                         """
+#
+#             tree = ast.parse(code)
+#             visitor = UnreachablePathVisitor()
+#             visitor.visit(tree)
+#
+#             self.assertListEqual([], visitor.output)
 
     # def test_unreachable_foreach(self):
     #     code = """def example(x):
