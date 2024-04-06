@@ -253,13 +253,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             else_returned = self.visit_until_return(else_block)
 
             # merge the visitors together (maybe change to analyze all branches separately)
-            for var_name in self.variables:
-                if_result = self.variables[var_name]
-                else_result = else_visitor.variables[var_name]
-
-                # TODO: this currently blindly chooses the result of if branch, will need some
-                #       more implementation changes to merge correctly (or make it traverse separately)
-                self.variables[var_name] = if_result
+            # for var_name in self.variables:
+            #     if_result = self.variables[var_name]
+            #     else_result = else_visitor.variables[var_name]
+            #
+            #     # TODO: this currently blindly chooses the result of if branch, will need some
+            #     #       more implementation changes to merge correctly (or make it traverse separately)
+            #     self.variables[var_name] = if_result
 
         if if_returned and else_returned:
             return self.return_flag

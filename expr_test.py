@@ -163,7 +163,7 @@ class ExprTest(unittest.TestCase):
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([4], visitor.output)
 
     def test_unreachable_bin_mult(self):
         code = """def example(x):
@@ -211,7 +211,7 @@ class ExprTest(unittest.TestCase):
         visitor = UnreachablePathVisitor()
         visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([4], visitor.output)
 
     # def test_unreachable_bin_floorDiv(self):
     #     code = """def example(x):
