@@ -11,16 +11,23 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     path_conds: a stack of boolean expressions representing path conditions.
     output: a list of line numbers that are deemed unreachable.
     """
-    def __init__(self):
+
+    def __init__(self, all_visitors=None):
         self.variables: dict[str, ArithRef | BoolRef] = {}
         self.func_nodes = {}
         self.path_conds: list[BoolRef] = []
         self.output: list[int] = []
 
-    symbol_prefix = 'var'
-    symbol_idx = 0
+        if all_visitors is None:
+            self.all_visitors = [self]
+        else:
+            all_visitors.append(self)
+            self.all_visitors = all_visitors
 
-    return_flag = object()
+        self.symbol_prefix = 'var'
+        self.symbol_idx = 0
+
+        self.return_flag = object()
 
     """
     Root
@@ -98,9 +105,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return +value
             case ast.Not:
                 return not value
-            # case ast.Invert:
-            #     result = ~value
-            case _:     # Unsupported TODO
+            case _:
+                # unsupported operations
                 return None
 
     def visit_BinOp(self, node):
@@ -116,13 +122,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return left * right
             case ast.Div:
                 return left / right
-            # case ast.FloorDiv:
-            #     return left // right
-            # case ast.Mod:
-            #     return left % right
             case ast.Pow:
                 return left ** right
-            case _:     # Unsupported TODO
+            case _:
+                # unsupported operations
                 return None
 
     def visit_BoolOp(self, node):
@@ -134,8 +137,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return Or(*values)
             case ast.And:
                 return And(*values)
-            case _:     # Unsupported unknown TODO
-                return None
 
     def visit_Compare(self, node):
         comparators = [self.visit(comparator) for comparator in [node.left] + node.comparators]
@@ -160,7 +161,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 case ast.GtE:
                     eqs.append(lhs >= rhs)
                 case _:
-                    # unsupported
+                    # unsupported operations
                     pass
 
         return simplify(And(*eqs))
@@ -253,13 +254,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             else_returned = self.visit_until_return(else_block)
 
             # merge the visitors together (maybe change to analyze all branches separately)
-            # for var_name in self.variables:
-            #     if_result = self.variables[var_name]
-            #     else_result = else_visitor.variables[var_name]
-            #
-            #     # TODO: this currently blindly chooses the result of if branch, will need some
-            #     #       more implementation changes to merge correctly (or make it traverse separately)
-            #     self.variables[var_name] = if_result
+            for var_name in self.variables:
+                if_result = self.variables[var_name]
+                else_result = else_visitor.variables[var_name]
+
+                # TODO: this currently blindly chooses the result of if branch, will need some
+                #       more implementation changes to merge correctly (or make it traverse separately)
+                self.variables[var_name] = if_result
 
         if if_returned and else_returned:
             return self.return_flag
