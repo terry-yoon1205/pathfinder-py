@@ -104,7 +104,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return None
 
     def visit_BinOp(self, node):
-        # TODO
         left, right = self.visit(node.left), self.visit(node.right)
         op = node.op
 
