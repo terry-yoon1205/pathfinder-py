@@ -1,6 +1,5 @@
 import ast
 from z3 import *
-from z3 import Solver
 import builtins
 
 
