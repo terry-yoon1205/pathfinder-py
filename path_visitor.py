@@ -2,6 +2,7 @@ import ast
 from z3 import *
 import builtins
 
+
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
     variables: a dictionary mapping variable names to its symbolic representation.
@@ -18,12 +19,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     symbol_prefix = 'var'
     symbol_idx = 0
 
+    return_flag = object()
+
     """
     Root
     """
 
     def visit_Module(self, node):
-        # TODO
         self.func_nodes.update(analyze_code(node))
         self.generic_visit(node)
 
@@ -32,7 +34,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        if (node.id not in self.variables):
+        if node.id not in self.variables:
             return "temp"
         return self.variables[node.id]
 
@@ -48,7 +50,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Call(self, node):
-        # TODO
         if isinstance(node.func, ast.Name):
             func_name = node.func.id
 
@@ -137,41 +138,36 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Return(self, node):
-        # TODO
-        self.generic_visit(node)
+        return self.return_flag
 
     def visit_Raise(self, node):
-        # TODO
-        self.generic_visit(node)
+        return self.return_flag
 
     """
     Definitions
     """
 
     def visit_FunctionDef(self, node):
-        # function_name = node.name
-        # parameters = [param.arg for param in node.args.args]  # Collecting parameter names
-        # start_line = node.lineno
-        # self.func_nodes[function_name] = node
-        #     # FunctionInfo(name=function_name, node=node, parameters=parameters,
-        #     #                                               start_line=start_line)
         for arg in node.args.args:
             name = arg.arg
             self.variables[name] = self.new_symbolic_var()
 
-        for child in node.body:
-            self.visit(child)
+        self.visit_until_return(node.body)
 
     """
     Control flow
     """
 
     def visit_If(self, node):
+        if_block = node.body
+        else_block = node.orelse
+
+        if_returned = False
+        else_returned = False
+
         if_cond = self.visit(node.test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
-
-        else_cond = simplify(Not(if_cond))
 
         # spawn a copy of this visitor to traverse the else branch
         else_visitor = UnreachablePathVisitor()
@@ -189,29 +185,29 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         if solver.check() == unsat:
             # no solution, if branch unreachable
-            first_line = node.body[0]
+            first_line = if_block[0]
             self.output.append(first_line.lineno)
         else:
             self.path_conds.append(if_cond)
-            for child in node.body:
-                self.visit(child)
-
+            if_returned = self.visit_until_return(if_block)
             self.path_conds.pop()
 
-        if len(node.orelse) == 0:  # no else branch, return
-            return
+        if len(else_block) == 0:  # no else branch, return
+            # self.check_for_return_raise(node)
+            return self.return_flag if if_returned else False
+
+        else_cond = simplify(Not(if_cond))
 
         solver.pop()
         solver.add(else_cond)
 
         if solver.check() == unsat:
             # no solution, else branch unreachable
-            first_line = node.orelse[0]
+            first_line = else_block[0]
             self.output.append(first_line.lineno)
         else:
             else_visitor.path_conds.append(else_cond)
-            for child in node.orelse:
-                else_visitor.visit(child)
+            else_returned = self.visit_until_return(else_block)
 
             # merge the visitors together (maybe change to analyze all branches separately)
             for var_name in self.variables:
@@ -221,6 +217,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 # TODO: this currently blindly chooses the result of if branch, will need some
                 #       more implementation changes to merge correctly (or make it traverse separately)
                 self.variables[var_name] = if_result
+
+        if if_returned and else_returned:
+            return self.return_flag
 
     def visit_For(self, node):
         # TODO
@@ -239,11 +238,23 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.symbol_idx += 1
         return var
 
+    def visit_until_return(self, block):
+        returned = False
+
+        for i, stmt in enumerate(block):
+            ret = self.visit(stmt)
+            if ret == self.return_flag:
+                returned = True
+
+                if stmt.lineno < block[-1].lineno:
+                    self.output.append(block[i + 1].lineno)
+
+                break
+
+        return returned
+
 
 class FunctionCollector(ast.NodeVisitor):
-    # TODO: we can maybe use another visitor to collect FunctionDef nodes, so we can traverse
-    #       through function calls.
-
     def __init__(self):
         self.called_functions = {}
         self.called_functionsNames = set()
@@ -254,7 +265,6 @@ class FunctionCollector(ast.NodeVisitor):
         self.defined_functionNames.add(node.name)
         self.defined_function[node.name] = node
         self.generic_visit(node)
-        # return node.name  # stub
 
     def visit_Call(self, node):
         if isinstance(node.func, ast.Name):
@@ -262,7 +272,6 @@ class FunctionCollector(ast.NodeVisitor):
             self.called_functionsNames.add(node.func.id)
         else:
             if isinstance(node.func, ast.Attribute):
-                # dir(Solver)
                 # TODO: add attribute object class defined functions
                 self.called_functions[node.func.attr] = node
                 self.called_functionsNames.add(node.func.attr)
