@@ -10,11 +10,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     func_nodes: a collection of ast.FunctionDef nodes, used for traversing function calls.
     path_conds: a stack of boolean expressions representing path conditions.
     output: a list of line numbers that are deemed unreachable.
+    whileloop_break_detector_stack: stack used for tracking if an reachable break exists inside a while loop.
     """
     variables: dict[str, ArithRef | BoolRef] = {}
     func_nodes = {}
     path_conds: list[BoolRef] = []
     output: list[int] = []
+    whileloop_break_detector_stack = []
 
     symbol_prefix = 'var'
     symbol_idx = 0
@@ -222,8 +224,28 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             return self.return_flag
 
     def visit_For(self, node):
-        # TODO
-        self.generic_visit(node)
+
+        if isinstance(node.iter, ast.Name):
+            print("We do not support checking of for-each loops.")
+            return
+        else:
+            # for loop case
+            if node.iter.func.id != "range":
+                print("We do not support checking of for loops that use function calls in the conditional.")
+                return
+            else:
+                # case 1: check if we can enter for-loop.
+                lhs = self.visit(node.iter.args[0])
+                rhs = self.visit(node.iter.args[1])
+
+                solver = Solver()
+                for cond in self.path_conds:
+                    solver.add(cond)
+
+                solver.push()
+                solver.add(rhs > lhs)
+
+                print("TODO")
 
     def visit_While(self, node):
         # TODO
