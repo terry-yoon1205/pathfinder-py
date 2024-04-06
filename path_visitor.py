@@ -13,7 +13,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def __init__(self):
-        self.variables: dict[str, ArithRef | BoolRef] = {}
+        self.variables: list[dict[str, ArithRef | BoolRef]] = [{}]
+        self.func_variables: dict[str, ArithRef | BoolRef] = {}
         self.func_nodes = {}
         self.path_conds: list[BoolRef] = []
         self.output: list[int] = []
@@ -21,13 +22,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         self.symbol_prefix = 'var'
         self.symbol_idx = 0
+        self.function_scope = 0
 
     """
     Root
     """
 
     def visit_Module(self, node):
-        # TODO
         self.func_nodes.update(analyze_code(node))
         self.generic_visit(node)
 
@@ -36,9 +37,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        if (node.id not in self.variables):
+        if node.id not in self.func_variables:
             return "temp"
-        return self.variables[node.id]
+        return self.func_variables[node.id]
 
     def visit_Constant(self, node):
         try:
@@ -52,15 +53,17 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Call(self, node):
-        # TODO
         if isinstance(node.func, ast.Name):
             func_name = node.func.id
 
             if func_name in self.func_nodes:
                 prepared_args = []
                 for arg in node.args:
-                    if isinstance(arg, ast.Name) and arg.id in self.variables:
-                        prepared_args.append(self.variables[arg.id])
+                    if isinstance(arg, ast.Name) and (arg.id in self.func_variables or arg.id in self.variables[0]):
+                        if arg.id in self.variables[0]:
+                            prepared_args.append(self.variables[0][arg.id])
+                        else:
+                            prepared_args.append(self.func_variables[arg.id])
                     elif isinstance(arg, ast.Constant):
                         prepared_args.append(arg.value)
                     elif isinstance(arg, ast.Call):
@@ -139,7 +142,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         for target in node.targets:
             if isinstance(target, ast.Name):
-                self.variables[target.id] = rhs
+                if self.function_scope == 0:
+                    self.variables[0][target.id] = rhs
+                else:
+                    self.func_variables[target.id] = rhs
 
     def visit_AugAssign(self, node):
         # TODO
@@ -158,18 +164,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_FunctionDef(self, node):
-        # function_name = node.name
-        # parameters = [param.arg for param in node.args.args]  # Collecting parameter names
-        # start_line = node.lineno
-        # self.func_nodes[function_name] = node
-        #     # FunctionInfo(name=function_name, node=node, parameters=parameters,
-        #     #                                               start_line=start_line)
+        self.function_scope += 1
+
         for arg in node.args.args:
             name = arg.arg
-            self.variables[name] = self.new_symbolic_var()
+            self.func_variables[name] = self.new_symbolic_var()
 
         for child in node.body:
             self.visit(child)
+
+        # check if not nested def, clear the local func variables
+        if self.function_scope == 1:
+            self.variables.append(self.func_variables)
+            self.func_variables = {}
+        self.function_scope -= 1
 
     """
     Control flow
@@ -184,7 +192,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         # spawn a copy of this visitor to traverse the else branch
         else_visitor = UnreachablePathVisitor()
-        else_visitor.variables = self.variables.copy()
+        else_visitor.func_variables = self.func_variables.copy()
         else_visitor.path_conds = self.path_conds.copy()
         else_visitor.output = self.output  # append to the same list instance
         else_visitor.symbol_idx = self.symbol_idx
@@ -223,17 +231,16 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 else_visitor.visit(child)
 
             # merge the visitors together (maybe change to analyze all branches separately)
-            for var_name in self.variables:
-                if_result = self.variables[var_name]
-                else_result = else_visitor.variables[var_name]
+            for var_name in self.func_variables:
+                if_result = self.func_variables[var_name]
+                else_result = else_visitor.func_variables[var_name]
 
                 # TODO: fix this
-                self.variables[var_name] = Or(if_result, else_result)
+                self.func_variables[var_name] = Or(if_result, else_result)
 
     def visit_For(self, node):
         # TODO
         self.generic_visit(node)
-        # self.visit(node.iter)
 
     def visit_While(self, node):
         # TODO

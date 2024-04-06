@@ -224,20 +224,20 @@ def some_function():
         # print(visitor.output)
         self.assertIn(8, visitor.output, "None detected")
 
-#       TODO: not passing right now since x is not None
-#     def test_call_with_uninitialized_variable_parameters(self):
-#         code = """
-# def another_function(x, y):
-#     return x + y
-#
-# def some_function():
-#     another_function(x, 2)
-#                             """
-#         tree = ast.parse(code)
-#         visitor = UnreachablePathVisitor()
-#         visitor.visit(tree)
-#
-#         self.assertIn(6, visitor.output)
+    def test_call_with_uninitialized_variable_parameters(self):
+        code = """
+def another_function(x, y):
+    return x + y
+
+def some_function():
+    y = 2
+    another_function(x, 2)
+                            """
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertIn(7, visitor.output)
 
     def test_call_with_with_If(self):
         code = """  
@@ -283,21 +283,37 @@ s.add(f(f(x)) == x, f(x) == y, x != y)"""
         # print(visitor.output)
         self.assertEqual(0, len(visitor.output))
 
-#     def test_instance_methods(self):
-#         code = """class Calculator:
-#     def add(self, a, b):
-#         return a + b
-#
-# calc = Calculator()
-#
-# result = calc.add(5, 3)
-#
-# print("The result is:", result)
-# """
-#         tree = ast.parse(code)
-#         visitor = UnreachablePathVisitor()
-#         visitor.visit(tree)
-#         print(visitor.output)
-#         self.assertEqual(0, len(visitor.output))
+    def test_instance_methods(self):
+        code = """class Calculator:
+    def add(self, a, b):
+        return a + b
+
+calc = Calculator()
+
+result = calc.add(5, 3)
+
+print("The result is:", result)
+"""
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        print(visitor.output)
+        # not passing right now as return None
+        self.assertEqual(0, len(visitor.output))
+
+    def test_call_with_nested_call(self):
+        code = """def outer_function(text):
+    def inner_function(subtext):
+        return subtext.upper()
+    
+    x = 3
+    result = inner_function(text)
+    return result"""
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+        # print(visitor.output)
+        self.assertEqual(0, len(visitor.output))
+
 if __name__ == '__main__':
     unittest.main()
