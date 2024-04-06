@@ -12,11 +12,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     output: a list of line numbers that are deemed unreachable.
     whileloop_break_detector_stack: stack used for tracking if an reachable break exists inside a while loop.
     """
-    variables: dict[str, ArithRef | BoolRef] = {}
-    func_nodes = {}
-    path_conds: list[BoolRef] = []
-    output: list[int] = []
-    whileloop_break_detector_stack = []
+    def __init__(self):
+        self.variables: dict[str, ArithRef | BoolRef] = {}
+        self.func_nodes = {}
+        self.path_conds: list[BoolRef] = []
+        self.output: list[int] = []
+        self.whileloop_break_detector_stack = []
 
     symbol_prefix = 'var'
     symbol_idx = 0
@@ -42,7 +43,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_Constant(self, node):
         try:
-            return RealVal(float(node.value))
+            if isinstance(node.value, bool):
+                return BoolVal(node.value)
+            else:
+                return RealVal(float(node.value))
         except ValueError:
             # unsupported value
             return None
@@ -85,16 +89,55 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             self.generic_visit(node)
 
     def visit_UnaryOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        op = node.op
+        operand = node.operand
+        value = self.visit(operand)
+
+        match type(op):
+            case ast.USub:
+                return -value
+            case ast.UAdd:
+                return +value
+            case ast.Not:
+                return not value
+            # case ast.Invert:
+            #     result = ~value
+            case _:     # Unsupported TODO
+                return None
 
     def visit_BinOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        left, right = self.visit(node.left), self.visit(node.right)
+        op = node.op
+
+        match type(op):
+            case ast.Add:
+                return left + right
+            case ast.Sub:
+                return left - right
+            case ast.Mult:
+                return left * right
+            case ast.Div:
+                return left / right
+            # case ast.FloorDiv:
+            #     return left // right
+            # case ast.Mod:
+            #     return left % right
+            case ast.Pow:
+                return left ** right
+            case _:     # Unsupported TODO
+                return None
 
     def visit_BoolOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        op = node.op
+        values = [self.visit(n) for n in node.values]
+
+        match type(op):
+            case ast.Or:
+                return Or(*values)
+            case ast.And:
+                return And(*values)
+            case _:     # Unsupported unknown TODO
+                return None
 
     def visit_Compare(self, node):
         comparators = [self.visit(comparator) for comparator in [node.left] + node.comparators]
@@ -212,13 +255,13 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             else_returned = self.visit_until_return(else_block)
 
             # merge the visitors together (maybe change to analyze all branches separately)
-            for var_name in self.variables:
-                if_result = self.variables[var_name]
-                else_result = else_visitor.variables[var_name]
-
-                # TODO: this currently blindly chooses the result of if branch, will need some
-                #       more implementation changes to merge correctly (or make it traverse separately)
-                self.variables[var_name] = if_result
+            # for var_name in self.variables:
+            #     if_result = self.variables[var_name]
+            #     else_result = else_visitor.variables[var_name]
+            #
+            #     # TODO: this currently blindly chooses the result of if branch, will need some
+            #     #       more implementation changes to merge correctly (or make it traverse separately)
+            #     self.variables[var_name] = if_result
 
         if if_returned and else_returned:
             return self.return_flag

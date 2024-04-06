@@ -4,6 +4,22 @@ from path_visitor import UnreachablePathVisitor
 
 
 class TestPathVisitor(unittest.TestCase):
+    def test_no_issues(self):
+        code = """def example(x):
+                if x > 5:
+                    return True;
+                elif x > 4:
+                    return False;
+                else:
+                    return True
+            """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([], visitor.output)
+
     def test_after_return(self):
         code = """def example():
             return 1
@@ -50,22 +66,6 @@ class TestPathVisitor(unittest.TestCase):
         visitor.visit(tree)
 
         self.assertListEqual([6, 8], visitor.output)
-
-    def test_no_issues(self):
-        code = """def example(x):
-                if x > 5:
-                    return True;
-                elif x > 4:
-                    return False;
-                else:
-                    return True
-            """
-
-        tree = ast.parse(code)
-        visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-
-        self.assertListEqual([], visitor.output)
 
     def test_unreachable_else(self):
         code = """def example(x):
