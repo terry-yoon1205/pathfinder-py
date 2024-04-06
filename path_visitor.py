@@ -65,7 +65,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_BinOp(self, node):
         # TODO
-        self.generic_visit(node)
         left, right = self.visit(node.left), self.visit(node.right)
         op = node.op
 
@@ -78,10 +77,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return left * right
             case ast.Div:
                 return left / right
-            case ast.FloorDiv:
-                return left // right
-            case ast.Mod:
-                return left % right
+            # case ast.FloorDiv:
+            #     return left // right
+            # case ast.Mod:
+            #     return left % right
             case ast.Pow:
                 return left ** right
             case _:     # Unsupported TODO

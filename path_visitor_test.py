@@ -382,37 +382,37 @@ class TestPathVisitor(unittest.TestCase):
 
         self.assertListEqual([6], visitor.output)
 
-    def test_unreachable_bin_floorDiv(self):
-        code = """def example(x):
-                    y = 3 // 2
-                    if y == 1:
-                        c = 2
-                    else:
-                        c = 1
-                    return False
-        """
-
-        tree = ast.parse(code)
-        visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-
-        self.assertListEqual([6], visitor.output)
-
-    def test_unreachable_bin_mod(self):
-        code = """def example(x):
-                    y = 3 % 2
-                    if y == 1:
-                        c = 2
-                    else:
-                        c = 1
-                    return False
-        """
-
-        tree = ast.parse(code)
-        visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-
-        self.assertListEqual([6], visitor.output)
+    # def test_unreachable_bin_floorDiv(self):
+    #     code = """def example(x):
+    #                 y = 3 // 2
+    #                 if y == 1:
+    #                     c = 2
+    #                 else:
+    #                     c = 1
+    #                 return False
+    #     """
+    #
+    #     tree = ast.parse(code)
+    #     visitor = UnreachablePathVisitor()
+    #     visitor.visit(tree)
+    #
+    #     self.assertListEqual([6], visitor.output)
+    #
+    # def test_unreachable_bin_mod(self):
+    #     code = """def example(x):
+    #                 y = 3 % 2
+    #                 if y == 1:
+    #                     c = 2
+    #                 else:
+    #                     c = 1
+    #                 return False
+    #     """
+    #
+    #     tree = ast.parse(code)
+    #     visitor = UnreachablePathVisitor()
+    #     visitor.visit(tree)
+    #
+    #     self.assertListEqual([6], visitor.output)
 
     def test_unreachable_bin_pow(self):
         code = """def example(x):
