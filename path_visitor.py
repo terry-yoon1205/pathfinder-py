@@ -24,6 +24,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.symbol_idx = 0
         self.function_scope = 0
 
+    return_flag = object()
+
     """
     Root
     """
@@ -43,7 +45,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_Constant(self, node):
         try:
-            return RealVal(float(node.value))
+            if isinstance(node.value, bool):
+                return BoolVal(node.value)
+            else:
+                return RealVal(float(node.value))
         except ValueError:
             # unsupported value
             return None
@@ -94,16 +99,55 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             self.generic_visit(node)
 
     def visit_UnaryOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        op = node.op
+        operand = node.operand
+        value = self.visit(operand)
+
+        match type(op):
+            case ast.USub:
+                return -value
+            case ast.UAdd:
+                return +value
+            case ast.Not:
+                return not value
+            # case ast.Invert:
+            #     result = ~value
+            case _:     # Unsupported TODO
+                return None
 
     def visit_BinOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        left, right = self.visit(node.left), self.visit(node.right)
+        op = node.op
+
+        match type(op):
+            case ast.Add:
+                return left + right
+            case ast.Sub:
+                return left - right
+            case ast.Mult:
+                return left * right
+            case ast.Div:
+                return left / right
+            # case ast.FloorDiv:
+            #     return left // right
+            # case ast.Mod:
+            #     return left % right
+            case ast.Pow:
+                return left ** right
+            case _:     # Unsupported TODO
+                return None
 
     def visit_BoolOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        op = node.op
+        values = [self.visit(n) for n in node.values]
+
+        match type(op):
+            case ast.Or:
+                return Or(*values)
+            case ast.And:
+                return And(*values)
+            case _:     # Unsupported unknown TODO
+                return None
 
     def visit_Compare(self, node):
         comparators = [self.visit(comparator) for comparator in [node.left] + node.comparators]
@@ -152,12 +196,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.generic_visit(node)
 
     def visit_Return(self, node):
-        # TODO
-        self.generic_visit(node)
+        return self.return_flag
 
     def visit_Raise(self, node):
-        # TODO
-        self.generic_visit(node)
+        return self.return_flag
 
     """
     Definitions
@@ -165,13 +207,11 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_FunctionDef(self, node):
         self.function_scope += 1
-
         for arg in node.args.args:
             name = arg.arg
             self.func_variables[name] = self.new_symbolic_var()
 
-        for child in node.body:
-            self.visit(child)
+        self.visit_until_return(node.body)
 
         # check if not nested def, clear the local func variables
         if self.function_scope == 1:
@@ -184,11 +224,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_If(self, node):
+        if_block = node.body
+        else_block = node.orelse
+
+        if_returned = False
+        else_returned = False
+
         if_cond = self.visit(node.test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
-
-        else_cond = simplify(Not(if_cond))
 
         # spawn a copy of this visitor to traverse the else branch
         else_visitor = UnreachablePathVisitor()
@@ -206,29 +250,29 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         if solver.check() == unsat:
             # no solution, if branch unreachable
-            first_line = node.body[0]
+            first_line = if_block[0]
             self.output.append(first_line.lineno)
         else:
             self.path_conds.append(if_cond)
-            for child in node.body:
-                self.visit(child)
-
+            if_returned = self.visit_until_return(if_block)
             self.path_conds.pop()
 
-        if len(node.orelse) == 0:  # no else branch, return
-            return
+        if len(else_block) == 0:  # no else branch, return
+            # self.check_for_return_raise(node)
+            return self.return_flag if if_returned else False
+
+        else_cond = simplify(Not(if_cond))
 
         solver.pop()
         solver.add(else_cond)
 
         if solver.check() == unsat:
             # no solution, else branch unreachable
-            first_line = node.orelse[0]
+            first_line = else_block[0]
             self.output.append(first_line.lineno)
         else:
             else_visitor.path_conds.append(else_cond)
-            for child in node.orelse:
-                else_visitor.visit(child)
+            else_returned = self.visit_until_return(else_block)
 
             # merge the visitors together (maybe change to analyze all branches separately)
             for var_name in self.func_variables:
@@ -255,6 +299,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.symbol_idx += 1
         return var
 
+    def visit_until_return(self, block):
+        returned = False
+
+        for i, stmt in enumerate(block):
+            ret = self.visit(stmt)
+            if ret == self.return_flag:
+                returned = True
+
+                if stmt.lineno < block[-1].lineno:
+                    self.output.append(block[i + 1].lineno)
+
+                break
+
+        return returned
 
 class FunctionCollector(ast.NodeVisitor):
     def __init__(self):
