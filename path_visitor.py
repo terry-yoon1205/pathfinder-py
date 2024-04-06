@@ -53,25 +53,51 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         match type(op):
             case ast.USub:
-                result = -value
+                return -value
             case ast.UAdd:
-                result = +value
+                return +value
             case ast.Not:
-                result = Not(value)
+                return not value
             # case ast.Invert:
             #     result = ~value
-            case _:     # Unsupported
+            case _:     # Unsupported TODO
                 return None
-
-        return result
 
     def visit_BinOp(self, node):
         # TODO
         self.generic_visit(node)
+        left, right = self.visit(node.left), self.visit(node.right)
+        op = node.op
+
+        match type(op):
+            case ast.Add:
+                return left + right
+            case ast.Sub:
+                return left - right
+            case ast.Mult:
+                return left * right
+            case ast.Div:
+                return left / right
+            case ast.FloorDiv:
+                return left // right
+            case ast.Mod:
+                return left % right
+            case ast.Pow:
+                return left ** right
+            case _:     # Unsupported TODO
+                return None
 
     def visit_BoolOp(self, node):
-        # TODO
-        self.generic_visit(node)
+        op = node.op
+        values = [self.visit(n) for n in node.values]
+
+        match type(op):
+            case ast.Or:
+                return Or(*values)
+            case ast.And:
+                return And(*values)
+            case _:     # Unsupported unknown TODO
+                return None
 
     def visit_Compare(self, node):
         comparators = [self.visit(comparator) for comparator in [node.left] + node.comparators]
