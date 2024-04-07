@@ -30,3 +30,8 @@ def add_two(n):
     return n + 2
 ```
 The tool will output that line 6 is unreachable.
+
+## Usage
+1. To install Z3Py, run `pip install z3_solver` in the repo root.
+2. Make sure the file `code.txt` exists in the repo root, and paste the code you'd like to analyze into the file.
+3. Run the analyzer by running `python pathfinder.py`.
