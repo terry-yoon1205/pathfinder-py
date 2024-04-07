@@ -271,33 +271,27 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_For(self, node):
         for_block = node.body
 
-        if isinstance(node.iter, ast.Name):
-            print("We do not support checking of for-each loops.")
+        if not isinstance(node.iter, ast.Call) or node.iter.func.id != "range":
+            print("Warning: Unsupported for-loop iterable encountered.")
             return
-        else:
-            # for loop case
-            if node.iter.func.id != "range":
-                print("We do not support checking of for loops that use function calls in the conditional.")
-                return
-            else:
-                # case 1: check if we can enter for-loop.
-                lhs = self.visit(node.iter.args[0])
-                rhs = self.visit(node.iter.args[1])
 
-                solver = Solver()
-                for cond in self.path_conds:
-                    solver.add(cond)
+        # case 1: check if we can enter for-loop.
+        lhs = self.visit(node.iter.args[0])
+        rhs = self.visit(node.iter.args[1])
 
-                solver.push()
-                solver.add(rhs > lhs)
+        solver = Solver()
+        for cond in self.path_conds:
+            solver.add(cond)
 
-                if solver.check() == unsat:
-                    # no solution, loop body unreachable.
-                    first_line = for_block[0]
-                    self.output.append(first_line.lineno)
+        solver.push()
+        solver.add(rhs > lhs)
+
+        if solver.check() == unsat:
+            # no solution, loop body unreachable.
+            first_line = for_block[0]
+            self.output.append(first_line.lineno)
 
     def visit_While(self, node):
-
         while_block = node.body
         else_block = node.orelse
 
@@ -339,26 +333,23 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 for line in while_block:
                     self.visit(line)
 
-                if self.whileloop_break_detector_stack.pop() == False:
+                if not self.whileloop_break_detector_stack.pop():
                     # all code after while_loop body is unreachable.
-
                     self.output.append(node.end_lineno + 1)
-
 
     def visit_Break(self, node):
         if len(self.whileloop_break_detector_stack) == 0:
             return
-        else:
-            solver = Solver()
-            for cond in self.path_conds:
-                solver.add(cond)
 
-            solver.push()
-            if (solver.check() == sat):
-                # this break is reachable, update the stack.
-                self.whileloop_break_detector_stack.pop()
-                self.whileloop_break_detector_stack.append(True)
+        solver = Solver()
+        for cond in self.path_conds:
+            solver.add(cond)
 
+        solver.push()
+        if solver.check() == sat:
+            # this break is reachable, update the stack.
+            self.whileloop_break_detector_stack.pop()
+            self.whileloop_break_detector_stack.append(True)
 
     """
     Helpers

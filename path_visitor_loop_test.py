@@ -11,7 +11,6 @@ class TestPathVisitor(unittest.TestCase):
                         else:
                             print("hello2")
                         return 5
-
              """
 
         tree = ast.parse(code)
@@ -170,22 +169,6 @@ class TestPathVisitor(unittest.TestCase):
 #             visitor.visit(tree)
 #
 #             self.assertListEqual([], visitor.output)
-
-#TODO: foreach is not supported.
-    # def test_unreachable_foreach(self):
-    #     code = """def example(x):
-    #                     numbers = []
-    #                     for num in numbers:
-    #                        print(num, " hello!")
-    #                     return numbers
-    #                 """
-    #
-    #     tree = ast.parse(code)
-    #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
-    #
-    #     self.assertListEqual([4], visitor.output)
-    #
 
 
 if __name__ == '__main__':
