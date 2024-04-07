@@ -5,6 +5,7 @@ In order to determine the satisfiability of branch conditions, it utilizes the Z
 
 Currently, the tool only supports a (small) part of the Python language. This includes:
 - Primitive, numerical variables (i.e. `float`, `int`, `bool`). Other values such as strings, lists, or tuples are not supported.
+- Assignment to variables, e.g. `x = 1` or `x = y + 4`.
 - Mathematical and boolean operations. Bitwise operations are unsupported.
 - If-else conditions.
 - While loops.
