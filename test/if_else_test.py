@@ -118,6 +118,29 @@ class IfElseTest(unittest.TestCase):
 
         self.assertListEqual([6, 16], output)
 
+    def test_combined(self):
+        code = """def example(x, y):
+    z = x - y
+    if z > 0:
+        x = x + y
+    elif z > 3:
+        x = x + y + 3
+    else:
+        y = 0
+
+    while x > y:
+        print(y)
+        y = add_two(y)
+
+def add_two(n):
+    return n + 2"""
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        output = visitor.visit(tree)
+
+        self.assertListEqual([6], output)
+
 
 if __name__ == '__main__':
     unittest.main()

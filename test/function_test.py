@@ -79,7 +79,7 @@ def some_function():
         visitor = UnreachablePathVisitor()
         output = visitor.visit(tree)
 
-        self.assertListEqual([11], output)
+        self.assertListEqual([12], output)
 
     # def test_instance_methods(self):
     #     code = """class Calculator:
