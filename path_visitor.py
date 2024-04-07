@@ -4,19 +4,22 @@ from z3 import *
 
 class UnreachablePathVisitor(ast.NodeVisitor):
     """
-    variables: a dictionary mapping variable names to its symbolic representation.
-               may be a boolean or an arithmetic expression.
-    func_nodes: a collection of ast.FunctionDef nodes, used for traversing function calls.
-    path_conds: a stack of boolean expressions representing path conditions.
-    output: a list of line numbers that are deemed unreachable.
-    whileloop_break_detector_stack: stack used for tracking if an reachable break exists inside a while loop.
+    variables_stack: a stack of dictionaries mapping variable names to its symbolic representation. each stack
+        represents a scope. the symbolic representation may be a boolean or an arithmetic expression.
+    functions_stack: a stack of dictionaries mapping function names to ast.FunctionDef nodes, used for traversing
+        function calls. similarly to above, each stack represents a scope.
+    path_conds: a stack of expressions representing path conditions.
+
+    output: a set of line numbers that are deemed unreachable.
+
+    whileloop_break_detector_stack: stack used for tracking if a reachable break exists inside a while loop.
     line_after_while_block: used to track the line no. of line right after a while block.
     """
 
     def __init__(self, parent=None):
         self.variables_stack: list[dict[str, ArithRef | BoolRef]] = [{}]
         self.functions_stack = [{}]
-        self.path_conds: list[BoolRef] = []
+        self.path_conds: list[ast.expr] = []
 
         self.output: set[int] = set()
         self.whileloop_break_detector_stack = []
@@ -26,12 +29,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.parent = parent
         if parent is not None:
             parent.child_visitors.append(self)
-
-        # if all_visitors is None:
-        #     self.all_visitors = [self]
-        # else:
-        #     all_visitors.append(self)
-        #     self.all_visitors = all_visitors
 
         self.symbol_prefix = 'var'
         self.symbol_idx = 0
@@ -46,16 +43,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_Module(self, node):
         self.collect_functions(node.body)
 
-        # TODO: define visitor stack
-
         for stmt in node.body:
             if isinstance(stmt, ast.FunctionDef):
                 child = UnreachablePathVisitor(self)
+                child.variables_stack = copy.deepcopy(self.variables_stack)
+                child.functions_stack = copy.deepcopy(self.functions_stack)
                 child.visit(stmt)
             else:
                 self.visit(stmt)
 
-        # TODO: union the outputs
         final_output = set()
         for visitor in [self] + self.child_visitors:
             final_output = final_output.union(visitor.output)
@@ -77,21 +73,18 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             name = arg.arg
             self.variables()[name] = self.new_symbolic_var()
 
-        # TODO: iterate through visitors
-        #       intersection the outputs
         body = node.body
         for i, stmt in enumerate(body):
             curr_visitors = self.child_visitors.copy()
+
             for visitor in [self] + curr_visitors:
                 ret = visitor.visit(stmt)
+
                 if ret == visitor.return_flag:
                     if stmt.lineno < body[-1].lineno:
                         visitor.output.add(body[i + 1].lineno)
 
-                    break
-
-            # newly spawned visitors should have an identical
-            # output to the parent visitor
+            # newly spawned visitors should have an identical output to the parent visitor
             for v_i in range(len(curr_visitors), len(self.child_visitors)):
                 child = self.child_visitors[v_i]
                 child.output = child.parent.output.copy()
@@ -154,7 +147,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             case ast.UAdd:
                 return +value
             case ast.Not:
-                return not value
+                return Not(value)
             case _:
                 # unsupported operations
                 return None
@@ -246,11 +239,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     def visit_If(self, node):
         if_block = node.body
         else_block = node.orelse
+        test = node.test
 
         if_returned = False
         else_returned = False
 
-        if_cond = self.visit(node.test)
+        if_cond = self.visit(test)
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
 
@@ -258,7 +252,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         solver = Solver()
         for cond in self.path_conds:
-            solver.add(cond)
+            solver.add(self.visit(cond))
 
         solver.push()
         solver.add(if_cond)
@@ -269,9 +263,9 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         else_unreachable = solver.check() == unsat
 
         # save copies for the else-block's visitor
-        else_visitor_variables = self.variables_stack.copy()
-        else_visitor_functions = self.functions_stack.copy()
-        else_visitor_path_conds = self.path_conds.copy()
+        else_visitor_variables = copy.deepcopy(self.variables_stack)
+        else_visitor_functions = copy.deepcopy(self.functions_stack)
+        else_visitor_path_conds = copy.deepcopy(self.path_conds)
         else_visitor_symbol_idx = self.symbol_idx
 
         if if_unreachable:
@@ -279,7 +273,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             first_line = if_block[0]
             self.output.add(first_line.lineno)
         else:
-            self.path_conds.append(if_cond)
+            self.path_conds.append(self.return_as_path_cond(test, True))
             if_returned = self.visit_until_return(if_block)
 
         if else_unreachable:
@@ -288,7 +282,11 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
             if len(else_block) > 0:
                 first_line = else_block[0]
-                self.output.add(first_line.lineno)
+                if isinstance(first_line, ast.If):
+                    # elif present
+                    self.output.add(first_line.lineno + 1)
+                else:
+                    self.output.add(first_line.lineno)
         else:
             if if_unreachable:
                 # use this visitor to traverse the else branch
@@ -302,9 +300,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 else_visitor.output = self.output.copy()
                 else_visitor.symbol_idx = else_visitor_symbol_idx
 
-            if len(else_block) > 0:
-                else_visitor.path_conds.append(else_cond)
-                else_returned = else_visitor.visit_until_return(else_block)
+            else_visitor.path_conds.append(self.return_as_path_cond(test, False))
+            else_returned = else_visitor.visit_until_return(else_block)
 
             output_union = self.output.union(else_visitor.output)
             self.output = output_union
@@ -326,7 +323,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         solver = Solver()
         for cond in self.path_conds:
-            solver.add(cond)
+            solver.add(self.visit(cond))
 
         solver.push()
         solver.add(rhs > lhs)
@@ -342,7 +339,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         # used to check if we can ENTER loop
         if_cond = self.visit(node.test)
-
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
 
@@ -351,7 +347,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         solver = Solver()
         for cond in self.path_conds:
-            solver.add(cond)
+            solver.add(self.visit(cond))
 
         solver.push()
         solver.add(if_cond)
@@ -388,7 +384,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         solver = Solver()
         for cond in self.path_conds:
-            solver.add(cond)
+            solver.add(self.visit(cond))
 
         solver.push()
         if solver.check() == sat:
@@ -420,6 +416,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 break
 
         return returned
+
+    def return_as_path_cond(self, node, cond):
+        ret = self.visit(node)
+        if isinstance(ret, BoolRef):
+            if cond:
+                return node
+            else:
+                new_node = ast.parse('not ' + ast.unparse(node)).body[0].value
+                return new_node
+        elif isinstance(ret, ArithRef):
+            if cond:
+                return ast.parse(ast.unparse(node) + ' > 0').body[0].value
+            else:
+                return ast.parse(ast.unparse(node) + ' < 0').body[0].value
 
     def collect_functions(self, body):
         function_collector = FunctionCollector()
