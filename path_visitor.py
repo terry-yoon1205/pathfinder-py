@@ -14,22 +14,28 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     line_after_while_block: used to track the line no. of line right after a while block.
     """
 
-    def __init__(self):
+    def __init__(self, all_visitors=None):
         self.variables: list[dict[str, ArithRef | BoolRef]] = [{}]
         self.func_variables: dict[str, ArithRef | BoolRef] = {}
         self.func_nodes = {}
         self.path_conds: list[BoolRef] = []
-        self.output: list[int] = []
 
-        self.defined_functions = {}
+        self.output: set[int] = set()
         self.whileloop_break_detector_stack = []
         self.line_after_while_block = None
 
-        self.symbol_prefix = 'var'
-        self.symbol_idx = 0
         self.function_scope = 0
 
-    return_flag = object()
+        if all_visitors is None:
+            self.all_visitors = [self]
+        else:
+            all_visitors.append(self)
+            self.all_visitors = all_visitors
+
+        self.symbol_prefix = 'var'
+        self.symbol_idx = 0
+
+        self.return_flag = object()
 
     """
     Root
@@ -37,7 +43,25 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def visit_Module(self, node):
         self.func_nodes.update(analyze_code(node))
-        self.generic_visit(node)
+        visitors = self.all_visitors
+
+        for stmt in node.body:
+            curr_visitors = len(visitors)
+            for i in range(curr_visitors):
+                visitors[i].visit(stmt)
+
+            # newly spawned visitors should have an identical
+            # output to the root visitor
+            for i in range(curr_visitors, len(visitors)):
+                visitors[i].output = self.output.copy()
+
+        for visitor in self.all_visitors:
+            self.output &= visitor.output
+
+        final_output = list(self.output)
+        final_output.sort()
+
+        return final_output
 
     """
     Literals and variable names
@@ -83,7 +107,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
                 handler = self.func_nodes[func_name]
                 if None in prepared_args:
-                    self.output.append(node.lineno)
+                    self.output.add(node.lineno)
 
                 if hasattr(handler.args, 'args'):
                     num_required_arguments = len(handler.args.args)
@@ -94,11 +118,12 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
                 if num_required_arguments != len(prepared_args):
                     if (num_required_arguments - count_func) != len(prepared_args):
-                        self.output.append(node.lineno)
+                        self.output.add(node.lineno)
+
                 return prepared_args
 
             else:
-                self.output.append(node.lineno)
+                self.output.add(node.lineno)
                 print(f"Warning: Function {func_name} not defined, added to output.")
         else:
             self.generic_visit(node)
@@ -115,9 +140,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return +value
             case ast.Not:
                 return not value
-            # case ast.Invert:
-            #     result = ~value
-            case _:     # Unsupported TODO
+            case _:
+                # unsupported operations
                 return None
 
     def visit_BinOp(self, node):
@@ -133,13 +157,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return left * right
             case ast.Div:
                 return left / right
-            # case ast.FloorDiv:
-            #     return left // right
-            # case ast.Mod:
-            #     return left % right
             case ast.Pow:
                 return left ** right
-            case _:     # Unsupported TODO
+            case _:
+                # unsupported operations
                 return None
 
     def visit_BoolOp(self, node):
@@ -151,8 +172,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 return Or(*values)
             case ast.And:
                 return And(*values)
-            case _:     # Unsupported unknown TODO
-                return None
 
     def visit_Compare(self, node):
         comparators = [self.visit(comparator) for comparator in [node.left] + node.comparators]
@@ -177,7 +196,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 case ast.GtE:
                     eqs.append(lhs >= rhs)
                 case _:
-                    # unsupported
+                    # unsupported operations
                     pass
 
         return simplify(And(*eqs))
@@ -239,12 +258,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
 
-        # spawn a copy of this visitor to traverse the else branch
-        else_visitor = UnreachablePathVisitor()
-        else_visitor.func_variables = self.func_variables.copy()
-        else_visitor.path_conds = self.path_conds.copy()
-        else_visitor.output = self.output  # append to the same list instance
-        else_visitor.symbol_idx = self.symbol_idx
+        # save copies for the else-visitor
+        else_visitor_variables = self.variables.copy()
+        else_visitor_path_conds = self.path_conds.copy()
+        else_visitor_symbol_idx = self.symbol_idx
 
         solver = Solver()
         for cond in self.path_conds:
@@ -256,15 +273,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if solver.check() == unsat:
             # no solution, if branch unreachable
             first_line = if_block[0]
-            self.output.append(first_line.lineno)
+            self.output.add(first_line.lineno)
+
+            # use this visitor to traverse the else branch
+            else_visitor = self
         else:
             self.path_conds.append(if_cond)
             if_returned = self.visit_until_return(if_block)
-            self.path_conds.pop()
 
-        if len(else_block) == 0:  # no else branch, return
-            # self.check_for_return_raise(node)
-            return self.return_flag if if_returned else False
+            # spawn a copy of this visitor to traverse the else branch
+            else_visitor = UnreachablePathVisitor(self.all_visitors)
+            else_visitor.variables = else_visitor_variables
+            else_visitor.path_conds = else_visitor_path_conds
+            else_visitor.output = self.output.copy()
+            else_visitor.symbol_idx = else_visitor_symbol_idx
 
         else_cond = simplify(Not(if_cond))
 
@@ -273,20 +295,18 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         if solver.check() == unsat:
             # no solution, else branch unreachable
-            first_line = else_block[0]
-            self.output.append(first_line.lineno)
-        else:
-            else_visitor.path_conds.append(else_cond)
-            else_returned = self.visit_until_return(else_block)
+            else_returned = True
 
-            # merge the visitors together (maybe change to analyze all branches separately)
-            # for var_name in self.variables:
-            #     if_result = self.variables[var_name]
-            #     else_result = else_visitor.variables[var_name]
-            #
-            #     # TODO: this currently blindly chooses the result of if branch, will need some
-            #     #       more implementation changes to merge correctly (or make it traverse separately)
-            #     self.variables[var_name] = if_result
+            if len(else_block) > 0:
+                first_line = else_block[0]
+                else_visitor.output.add(first_line.lineno)
+        elif len(else_block) > 0:
+            else_visitor.path_conds.append(else_cond)
+            else_returned = else_visitor.visit_until_return(else_block)
+
+        output_union = self.output.union(else_visitor.output)
+        self.output = output_union
+        else_visitor.output = output_union.copy()
 
         if if_returned and else_returned:
             return self.return_flag
@@ -312,7 +332,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if solver.check() == unsat:
             # no solution, loop body unreachable.
             first_line = for_block[0]
-            self.output.append(first_line.lineno)
+            self.output.add(first_line.lineno)
 
     def visit_While(self, node):
         while_block = node.body
@@ -337,7 +357,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if solver.check() == unsat:
             # while loop body unreachable.
             first_line = while_block[0]
-            self.output.append(first_line.lineno)
+            self.output.add(first_line.lineno)
         else:
             # while loop body reachable.
             solver.pop()
@@ -349,7 +369,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 if len(else_block) == 1:
                     # else block exists and is unreachable.
                     first_line = else_block[0]
-                    self.output.append(first_line.lineno)
+                    self.output.add(first_line.lineno)
 
                 self.whileloop_break_detector_stack.append(False)
 
@@ -358,7 +378,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
                 if not self.whileloop_break_detector_stack.pop():
                     # all code after while_loop body is unreachable.
-                    self.output.append(node.end_lineno + 1)
+                    self.output.add(node.end_lineno + 1)
 
     def visit_Break(self, node):
         if len(self.whileloop_break_detector_stack) == 0:
@@ -392,7 +412,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
                 returned = True
 
                 if stmt.lineno < block[-1].lineno:
-                    self.output.append(block[i + 1].lineno)
+                    self.output.add(block[i + 1].lineno)
 
                 break
 
@@ -492,7 +512,7 @@ if __name__ == "__main__":
     code = 'def func(x, y):\n    if y < x:\n        x = y\n    else:\n        x = 1'
 
     tree = ast.parse(code)
-    visitor = UnreachablePathVisitor()
-    visitor.visit(tree)
+    v = UnreachablePathVisitor()
+    v.visit(tree)
 
-    print(visitor.output)
+    print(v.output)

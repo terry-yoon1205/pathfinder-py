@@ -14,9 +14,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_unreachable_unary_double_neg(self):
         code = """def example(x):
@@ -28,9 +28,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_unreachable_unary_pos(self):
         code = """def example(x):
@@ -41,9 +41,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     # def test_unreachable_unary_invert(self):
     #     code = """def example(x):
@@ -55,9 +55,9 @@ class ExprTest(unittest.TestCase):
     #
     #     tree = ast.parse(code)
     #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
+    #     output = visitor.visit(tree)
     #
-    #     self.assertListEqual([5], visitor.output)
+    #     self.assertListEqual([5], output)
 
     def test_unreachable_unary_not(self):
         code = """def example(x):
@@ -69,9 +69,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_unreachable_bool_or(self):
         code = """def example(x):
@@ -84,9 +84,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([5], visitor.output)
+        self.assertListEqual([5], output)
 
     def test_unreachable_bool_and(self):
         code = """def example(x):
@@ -97,9 +97,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_unreachable_bool_and_or(self):
         code = """def example(x):
@@ -113,9 +113,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
     def test_unreachable_bin_add(self):
         code = """def example(x):
@@ -129,9 +129,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
     def test_unreachable_bin_sub(self):
         code = """def example(x):
@@ -145,9 +145,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
     def test_unreachable_bin_sub2(self):
         code = """def example(x):
@@ -161,9 +161,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_unreachable_bin_mult(self):
         code = """def example(x):
@@ -177,9 +177,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
     def test_unreachable_bin_Div(self):
         code = """def example(x):
@@ -193,9 +193,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
     def test_unreachable_bin_Div_fail(self):
         code = """def example(x):
@@ -209,9 +209,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     # def test_unreachable_bin_floorDiv(self):
     #     code = """def example(x):
@@ -225,9 +225,9 @@ class ExprTest(unittest.TestCase):
     #
     #     tree = ast.parse(code)
     #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
+    #     output = visitor.visit(tree)
     #
-    #     self.assertListEqual([6], visitor.output)
+    #     self.assertListEqual([6], output)
     #
     # def test_unreachable_bin_mod(self):
     #     code = """def example(x):
@@ -241,9 +241,9 @@ class ExprTest(unittest.TestCase):
     #
     #     tree = ast.parse(code)
     #     visitor = UnreachablePathVisitor()
-    #     visitor.visit(tree)
+    #     output = visitor.visit(tree)
     #
-    #     self.assertListEqual([6], visitor.output)
+    #     self.assertListEqual([6], output)
 
     def test_unreachable_bin_pow(self):
         code = """def example(x):
@@ -257,9 +257,9 @@ class ExprTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6], visitor.output)
+        self.assertListEqual([6], output)
 
 
 if __name__ == '__main__':
