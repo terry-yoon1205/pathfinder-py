@@ -7,7 +7,6 @@ class TestReturnRaise(unittest.TestCase):
 
     def setUp(self):
         self.visitor = UnreachablePathVisitor()
-        self.visitor.output = []
 
     def test_return_single_location(self):
         code = """def example():
@@ -115,6 +114,9 @@ def example2():
             """def func1():
     return 0
 
+def func():
+    return 3
+    
 def example(x, y):
     if x > 0: 
         if y < 0:
@@ -132,9 +134,6 @@ def example(x, y):
         return 0
     x = y
     return 6
-    
-def func():
-    return 3
 """
 
         tree = ast.parse(code)
