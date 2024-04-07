@@ -4,7 +4,7 @@ This is a tool that will attempt to detect unreachable paths in Python code thro
 In order to determine the satisfiability of branch conditions, it utilizes the Z3 solver to perform symbolic execution of variables.
 
 Currently, the tool only supports a (small) part of the Python language. This includes:
-- Pritimitive, numerical variables (i.e. `float`, `int`, `bool`). Other values such as strings, lists, or tuples are not supported.
+- Primitive, numerical variables (i.e. `float`, `int`, `bool`). Other values such as strings, lists, or tuples are not supported.
 - Mathematical and boolean operations. Bitwise operations are unsupported.
 - If-else conditions.
 - While loops.
