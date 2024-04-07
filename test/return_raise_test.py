@@ -162,9 +162,9 @@ def example(x, y):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4, 5], visitor.output)
+        self.assertListEqual([4, 5], output)
 
     def test_raise_multiple_location(self):
         code = """def example():

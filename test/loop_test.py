@@ -124,51 +124,47 @@ class LoopTest(unittest.TestCase):
 
         self.assertListEqual([4], output)
 
+    def test_unreachable_for_func_call(self):
+        code = """
+def helper1(x):
+    return x + 4
 
-# TODO: get jeff to fix this test, if possible.
+def helper2(x):
+    return x + 4
 
-#     def test_unreachable_for_func_call(self):
-#         code = """
-# def helper1(x):
-#     return x + 4
-#
-# def helper2(x):
-#     return x + 4
-#
-# def example(x):
-#     y = 5
-#     for i in range(helper1(x), helper2(x)):
-#         print("hello!")
-#     return 6
-#                     """
-#
-#         tree = ast.parse(code)
-#         visitor = UnreachablePathVisitor()
-#         output = visitor.visit(tree)
-#
-#         self.assertListEqual([11], output)
+def example(x):
+    y = 5
+    for i in range(helper1(x), helper2(x)):
+        print("hello!")
+    return 6
+        """
 
-#     # TODO: get jeff to fix this test, if possible.
-#     def test_reachable_for_func_call(self):
-#             code = """
-# def helper1(x):
-#     return x + 4
-#
-# def helper2(x):
-#     return x + 4
-#
-# def example(x):
-#     y = 5
-#     for i in range(helper1(x), helper2(x)):
-#         print("hello!")
-#     return 6
-#                         """
-#
-#             tree = ast.parse(code)
-#             visitor = UnreachablePathVisitor()
-#             output = visitor.visit(tree)
-#
-#             self.assertListEqual([], output)
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        output = visitor.visit(tree)
+
+        self.assertListEqual([11], output)
+
+    def test_reachable_for_func_call(self):
+        code = """
+def helper1(x):
+    return x + 4
+
+def helper2(x):
+    return x + 5
+
+def example(x):
+    y = 5
+    for i in range(helper1(x), helper2(x)):
+        print("hello!")
+    return 6
+        """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        output = visitor.visit(tree)
+
+        self.assertListEqual([], output)
 
 
 if __name__ == '__main__':

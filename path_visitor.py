@@ -15,8 +15,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def __init__(self, all_visitors=None):
-        self.variables: dict[str, ArithRef | BoolRef] = {}
-        self.func_nodes = {}
+        self.variables_stack: list[dict[str, ArithRef | BoolRef]] = [{}]
+        self.functions_stack = [{}]
         self.path_conds: list[BoolRef] = []
 
         self.output: set[int] = set()
@@ -33,13 +33,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.symbol_idx = 0
 
         self.return_flag = object()
+        self.return_val = None
 
     """
     Root
     """
 
     def visit_Module(self, node):
-        self.func_nodes.update(analyze_code(node))
+        # self.func_nodes.update(analyze_code(node))
+        self.collect_functions(node.body)
         visitors = self.all_visitors
 
         for stmt in node.body:
@@ -65,9 +67,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        if node.id not in self.variables:
-            return "temp"
-        return self.variables[node.id]
+        return self.variables()[node.id]
 
     def visit_Constant(self, node):
         try:
@@ -84,42 +84,29 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Call(self, node):
-        if isinstance(node.func, ast.Name):
-            func_name = node.func.id
+        if not isinstance(node.func, ast.Name):
+            # unsupported
+            return
 
-            if func_name in self.func_nodes:
-                prepared_args = []
-                for arg in node.args:
-                    if isinstance(arg, ast.Name) and arg.id in self.variables:
-                        prepared_args.append(self.variables[arg.id])
-                    elif isinstance(arg, ast.Constant):
-                        prepared_args.append(arg.value)
-                    else:
-                        self.generic_visit(arg)
+        func = self.get_function(node.func.id)
+        if func is None:
+            return
 
-                handler = self.func_nodes[func_name]
-                if None in prepared_args:
-                    self.output.add(node.lineno)
+        args = [self.visit(arg) for arg in node.args]
 
-                if hasattr(handler.args, 'args'):
-                    num_required_arguments = len(handler.args.args)
-                else:
-                    num_required_arguments = len(handler.args)
+        self.new_scope()
 
-                if num_required_arguments != len(prepared_args):
-                    self.output.add(node.lineno)
-                return prepared_args
+        for i, param in enumerate(func.args.args):
+            self.variables()[param.arg] = args[i]
 
-            else:
-                self.output.add(node.lineno)
-                print(f"Warning: Function {func_name} not defined, added to output.")
-        else:
-            self.generic_visit(node)
+        self.visit_until_return(func.body)
+        self.teardown_scope()
+
+        return self.return_val
 
     def visit_UnaryOp(self, node):
         op = node.op
-        operand = node.operand
-        value = self.visit(operand)
+        value = self.visit(node.operand)
 
         match type(op):
             case ast.USub:
@@ -198,13 +185,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         for target in node.targets:
             if isinstance(target, ast.Name):
-                self.variables[target.id] = rhs
+                self.variables()[target.id] = rhs
 
     def visit_AugAssign(self, node):
         # TODO
         self.generic_visit(node)
 
     def visit_Return(self, node):
+        if node.value:
+            self.return_val = self.visit(node.value)
         return self.return_flag
 
     def visit_Raise(self, node):
@@ -215,11 +204,15 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_FunctionDef(self, node):
+        self.new_scope()
+        self.collect_functions(node.body)
+
         for arg in node.args.args:
             name = arg.arg
-            self.variables[name] = self.new_symbolic_var()
+            self.variables()[name] = self.new_symbolic_var()
 
         self.visit_until_return(node.body)
+        self.teardown_scope()
 
     """
     Control flow
@@ -237,7 +230,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
             if_cond = if_cond > 0
 
         # save copies for the else-visitor
-        else_visitor_variables = self.variables.copy()
+        else_visitor_variables = self.variables_stack.copy()
+        else_visitor_functions = self.functions_stack.copy()
         else_visitor_path_conds = self.path_conds.copy()
         else_visitor_symbol_idx = self.symbol_idx
 
@@ -261,7 +255,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
             # spawn a copy of this visitor to traverse the else branch
             else_visitor = UnreachablePathVisitor(self.all_visitors)
-            else_visitor.variables = else_visitor_variables
+            else_visitor.variables_stack = else_visitor_variables
+            else_visitor.functions_stack = else_visitor_functions
             else_visitor.path_conds = else_visitor_path_conds
             else_visitor.output = self.output.copy()
             else_visitor.symbol_idx = else_visitor_symbol_idx
@@ -396,56 +391,41 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         return returned
 
+    def collect_functions(self, body):
+        function_collector = FunctionCollector()
+        self.functions_stack[-1] = function_collector.collect(body)
+
+    def variables(self):
+        return self.variables_stack[-1]
+
+    def get_function(self, name):
+        for scope in reversed(self.functions_stack):
+            if name in scope:
+                return scope[name]
+        else:
+            return None
+
+    def new_scope(self):
+        self.variables_stack.append({})
+        self.functions_stack.append({})
+
+    def teardown_scope(self):
+        self.variables_stack.pop()
+        self.functions_stack.pop()
+
 
 class FunctionCollector(ast.NodeVisitor):
     def __init__(self):
-        self.called_functions = {}
-        self.called_functionsNames = set()
-        self.defined_function = {}
-        self.defined_functionNames = set()
+        self.output = {}
+
+    def collect(self, body):
+        for stmt in body:
+            self.visit(stmt)
+
+        return self.output
 
     def visit_FunctionDef(self, node):
-        self.defined_functionNames.add(node.name)
-        self.defined_function[node.name] = node
-        self.generic_visit(node)
-
-    def visit_Call(self, node):
-        if isinstance(node.func, ast.Name):
-            self.called_functions[node.func.id] = node
-            self.called_functionsNames.add(node.func.id)
-        else:
-            if isinstance(node.func, ast.Attribute):
-                # TODO: add attribute object class defined functions
-                self.called_functions[node.func.attr] = node
-                self.called_functionsNames.add(node.func.attr)
-        self.generic_visit(node)
-
-
-def analyze_code(tree):
-    z3_contents = dir(z3)
-    z3_functions = set([name for name in z3_contents if callable(getattr(z3, name))])
-
-    func_collector = FunctionCollector()
-
-    func_collector.visit(tree)
-    called_functions = func_collector.called_functions
-    called_functionNames = func_collector.called_functionsNames
-    defined_functionNames = func_collector.defined_functionNames
-
-    built_in_functions = set(dir(builtins))
-    valid_calls = called_functionNames & (defined_functionNames | built_in_functions | z3_functions)
-
-    filtered_functions = {k: called_functions[k] for k in valid_calls if k in called_functions}
-    filtered_functions.update(func_collector.defined_function)
-    return filtered_functions
-
-
-# @dataclass
-# class FunctionInfo:
-#     name: str
-#     node: ast.FunctionDef
-#     parameters: List[str] = field(default_factory=list)
-#     start_line: int = 0
+        self.output[node.name] = node
 
 
 if __name__ == "__main__":
