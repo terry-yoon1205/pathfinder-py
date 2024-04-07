@@ -18,9 +18,13 @@ def analyze(path):
                 lines = 'lines' if len(output) > 1 else 'line'
                 nums = ', '.join(map(str, output))
 
-                print(f'Unreachable {paths} found in {lines} {nums}.')
+                print(f'Unreachable {paths} found at {lines} {nums}.')
     except IOError:
-        print('Error: Couldn\'t read file. Is there a file named code.txt in the root?')
+        print('Error: couldn\'t read file. Is there a file named code.txt in the root?')
+    except SyntaxError as e:
+        print(f'Error: {e.msg} at line {e.lineno}. Make sure the code contains no compilation errors.')
+    except Exception:
+        print('Error: analysis failed. Make sure the code only contains supported constructs.')
 
 
 if __name__ == '__main__':
