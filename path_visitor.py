@@ -67,8 +67,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Name(self, node):
-        # if node.id not in self.func_variables:
-        #     return "temp"
         return self.variables()[node.id]
 
     def visit_Constant(self, node):
