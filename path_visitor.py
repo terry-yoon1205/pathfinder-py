@@ -341,14 +341,8 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
                 if self.whileloop_break_detector_stack.pop() == False:
                     # all code after while_loop body is unreachable.
-                    if len(else_block) > 0:
-                        # first line after while comes after it's else
-                        first_line_outside = else_block[len(else_block) - 1].lineno + 1
-                        self.output.append(first_line_outside)
-                    else:
-                        # first line after while comes after it's main body
-                        first_line_outside = while_block[len(while_block) - 1].lineno + 1
-                        self.output.append(first_line_outside)
+
+                    self.output.append(node.end_lineno + 1)
 
 
     def visit_Break(self, node):
