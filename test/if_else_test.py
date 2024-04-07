@@ -16,9 +16,9 @@ class IfElseTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([], visitor.output)
+        self.assertListEqual([], output)
 
     def test_unreachable_elif(self):
         code = """def example(x):
@@ -32,9 +32,9 @@ class IfElseTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([5], visitor.output)
+        self.assertListEqual([5], output)
 
     def test_unreachable_else(self):
         code = """def example(x):
@@ -48,9 +48,9 @@ class IfElseTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([7], visitor.output)
+        self.assertListEqual([7], output)
 
     def test_unreachable_nested(self):
         code = """def example(x, y):
@@ -67,9 +67,9 @@ class IfElseTest(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6, 8], visitor.output)
+        self.assertListEqual([6, 8], output)
 
 
 if __name__ == '__main__':

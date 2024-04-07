@@ -50,11 +50,10 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         for visitor in self.all_visitors:
             self.output &= visitor.output
 
-        self.output = list(self.output)
-        self.output.sort()
-        # final_output.sort()
-        #
-        # return final_output
+        final_output = list(self.output)
+        final_output.sort()
+
+        return final_output
 
     """
     Literals and variable names

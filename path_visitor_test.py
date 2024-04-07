@@ -12,9 +12,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_unreachable_while_simple(self):
         code = """def example(x):
@@ -25,9 +25,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_unreachable_code_after_while(self):
         code = """def example(x):
@@ -43,9 +43,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([9], visitor.output)
+        self.assertListEqual([9], output)
 
     def test_unreachable_while_else(self):
         code = """def example(x):
@@ -58,9 +58,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([5], visitor.output)
+        self.assertListEqual([5], output)
 
     def test_unreachable_for_simple(self):
         code = """def example(x):
@@ -71,9 +71,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_unreachable_for_return(self):
         code = """def example(x):
@@ -85,9 +85,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4, 5], visitor.output)
+        self.assertListEqual([4, 5], output)
 
     def test_unreachable_foreach(self):
         code = """def example(x):
@@ -99,9 +99,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_call_to_undefined_function(self):
         code = """def some_function():
@@ -109,8 +109,8 @@ class TestPathVisitor(unittest.TestCase):
                 """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-        self.assertIn(2, visitor.output, "The call to an undefined function should be detected as unrunnable")
+        output = visitor.visit(tree)
+        self.assertIn(2, output, "The call to an undefined function should be detected as unrunnable")
 
     def test_call_with_extra_parameters(self):
         code = """  
@@ -122,9 +122,9 @@ def some_function():
                 """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertIn(6, visitor.output)
+        self.assertIn(6, output)
 
     def test_call_with_less_parameters(self):
         code = """  
@@ -136,9 +136,9 @@ def some_function():
                         """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertIn(6, visitor.output)
+        self.assertIn(6, output)
 
     def test_call_with_none_parameters(self):
         code = """
@@ -152,9 +152,9 @@ def some_function():
                     """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertIn(8, visitor.output, "None detected")
+        self.assertIn(8, output, "None detected")
 
     def test_call_with_uninitialized_variable_parameters(self):
         code = """ 
@@ -166,9 +166,9 @@ def some_function():
                             """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertIn(6, visitor.output)
+        self.assertIn(6, output)
 
     def test_call_with_with_If(self):
         code = """  
@@ -183,8 +183,8 @@ def some_function():
                         """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-        self.assertIn(7, visitor.output)
+        output = visitor.visit(tree)
+        self.assertIn(7, output)
 
     def test_call_with_with_for(self):
         code = """  
@@ -199,8 +199,8 @@ def some_function():
                         """
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
-        self.assertIn(8, visitor.output)
+        output = visitor.visit(tree)
+        self.assertIn(8, output)
 
 
 #     def test_call_complex(self):
@@ -211,9 +211,9 @@ def some_function():
 # s.add(f(f(x)) == x, f(x) == y, x != y)"""
 #         tree = ast.parse(code)
 #         visitor = UnreachablePathVisitor()
-#         visitor.visit(tree)
-#         print(visitor.output)
-#         self.assertIn(0, visitor.output)
+#         output = visitor.visit(tree)
+#         print(output)
+#         self.assertIn(0, output)
 
 if __name__ == '__main__':
     unittest.main()

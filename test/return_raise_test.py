@@ -15,8 +15,8 @@ class TestReturnRaise(unittest.TestCase):
         """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
-        self.assertListEqual([3], self.visitor.output)
+        output = self.visitor.visit(tree)
+        self.assertListEqual([3], output)
 
     def test_return_multi_location(self):
         code = """def example():
@@ -27,8 +27,8 @@ def example2():
     print("This will also never be reached")
         """
         tree = ast.parse(code)
-        self.visitor.visit(tree)
-        self.assertListEqual([3, 6], self.visitor.output)
+        output = self.visitor.visit(tree)
+        self.assertListEqual([3, 6], output)
 
     def test_return_multi_line(self):
         code = """def example():
@@ -39,8 +39,8 @@ def example2():
             print("This will still never be reached")
         """
         tree = ast.parse(code)
-        self.visitor.visit(tree)
-        self.assertListEqual([3], self.visitor.output)
+        output = self.visitor.visit(tree)
+        self.assertListEqual([3], output)
 
     def test_return_if_cond(self):
         code = """def example(x):
@@ -51,9 +51,9 @@ def example2():
         """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([4, 5], self.visitor.output)
+        self.assertListEqual([4, 5], output)
 
     def test_return_if_else(self):
         code = """def example(x):
@@ -65,9 +65,9 @@ def example2():
                 """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([6], self.visitor.output)
+        self.assertListEqual([6], output)
 
     def test_return_nested_if_else_1(self):
         code = """def example(x, y):
@@ -86,9 +86,9 @@ def example2():
                 """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([13], self.visitor.output)
+        self.assertListEqual([13], output)
 
     def test_return_nested_if_else_2(self):
         code = """def example(x, y):
@@ -105,9 +105,9 @@ def example2():
                 """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([], self.visitor.output)
+        self.assertListEqual([], output)
 
     def test_return_meaningless_statements(self):
         code = \
@@ -137,9 +137,9 @@ def example(x, y):
 """
 
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([], self.visitor.output)
+        self.assertListEqual([], output)
 
     def test_raise_single_location(self):
         code = """def example():
@@ -148,9 +148,9 @@ def example(x, y):
             y = 10 / x
         """
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([4], self.visitor.output)
+        self.assertListEqual([4], output)
 
     def test_raise_multiple_location(self):
         code = """def example():
@@ -161,9 +161,9 @@ def example(x, y):
             y = 10 / x
         """
         tree = ast.parse(code)
-        self.visitor.visit(tree)
+        output = self.visitor.visit(tree)
 
-        self.assertListEqual([5, 6], self.visitor.output)
+        self.assertListEqual([5, 6], output)
 
 
 if __name__ == '__main__':
