@@ -3,7 +3,7 @@ import unittest
 from path_visitor import UnreachablePathVisitor
 
 
-class TestPathVisitor(unittest.TestCase):
+class LoopTest(unittest.TestCase):
     def test_unreachable_while_simple(self):
         code = """def example(x):
                         while (False):
