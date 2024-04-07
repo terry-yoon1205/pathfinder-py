@@ -419,12 +419,20 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
     def return_as_path_cond(self, node, cond):
         ret = self.visit(node)
+
+        # the return value of ast.parse will be wrapped in an ast.Module node
+        # and an ast.Expr node as such:
+        # Module(
+        #     body=[
+        #         Expr(
+        #             value=<the ast.expr node we want>)],
+        #     ...
+        # )
         if isinstance(ret, BoolRef):
             if cond:
                 return node
             else:
-                new_node = ast.parse('not ' + ast.unparse(node)).body[0].value
-                return new_node
+                return ast.parse('not ' + ast.unparse(node)).body[0].value
         elif isinstance(ret, ArithRef):
             if cond:
                 return ast.parse(ast.unparse(node) + ' > 0').body[0].value
