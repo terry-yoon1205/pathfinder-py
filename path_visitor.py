@@ -1,6 +1,5 @@
 import ast
 from z3 import *
-import builtins
 
 
 class UnreachablePathVisitor(ast.NodeVisitor):
@@ -14,7 +13,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     line_after_while_block: used to track the line no. of line right after a while block.
     """
 
-    def __init__(self, all_visitors=None):
+    def __init__(self, parent=None):
         self.variables_stack: list[dict[str, ArithRef | BoolRef]] = [{}]
         self.functions_stack = [{}]
         self.path_conds: list[BoolRef] = []
@@ -23,11 +22,16 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         self.whileloop_break_detector_stack = []
         self.line_after_while_block = None
 
-        if all_visitors is None:
-            self.all_visitors = [self]
-        else:
-            all_visitors.append(self)
-            self.all_visitors = all_visitors
+        self.child_visitors = []
+        self.parent = parent
+        if parent is not None:
+            parent.child_visitors.append(self)
+
+        # if all_visitors is None:
+        #     self.all_visitors = [self]
+        # else:
+        #     all_visitors.append(self)
+        #     self.all_visitors = all_visitors
 
         self.symbol_prefix = 'var'
         self.symbol_idx = 0
@@ -40,27 +44,63 @@ class UnreachablePathVisitor(ast.NodeVisitor):
     """
 
     def visit_Module(self, node):
-        # self.func_nodes.update(analyze_code(node))
         self.collect_functions(node.body)
-        visitors = self.all_visitors
+
+        # TODO: define visitor stack
 
         for stmt in node.body:
-            curr_visitors = len(visitors)
-            for i in range(curr_visitors):
-                visitors[i].visit(stmt)
+            if isinstance(stmt, ast.FunctionDef):
+                child = UnreachablePathVisitor(self)
+                child.visit(stmt)
+            else:
+                self.visit(stmt)
+
+        # TODO: union the outputs
+        final_output = set()
+        for visitor in [self] + self.child_visitors:
+            final_output = final_output.union(visitor.output)
+
+        ret = list(final_output)
+        ret.sort()
+
+        return ret
+
+    """
+    Definitions
+    """
+
+    def visit_FunctionDef(self, node):
+        self.new_scope()
+        self.collect_functions(node.body)
+
+        for arg in node.args.args:
+            name = arg.arg
+            self.variables()[name] = self.new_symbolic_var()
+
+        # TODO: iterate through visitors
+        #       intersection the outputs
+        body = node.body
+        for i, stmt in enumerate(body):
+            curr_visitors = self.child_visitors.copy()
+            for visitor in [self] + curr_visitors:
+                ret = visitor.visit(stmt)
+                if ret == visitor.return_flag:
+                    if stmt.lineno < body[-1].lineno:
+                        visitor.output.add(body[i + 1].lineno)
+
+                    break
 
             # newly spawned visitors should have an identical
-            # output to the root visitor
-            for i in range(curr_visitors, len(visitors)):
-                visitors[i].output = self.output.copy()
+            # output to the parent visitor
+            for v_i in range(len(curr_visitors), len(self.child_visitors)):
+                child = self.child_visitors[v_i]
+                child.output = child.parent.output.copy()
 
-        for visitor in self.all_visitors:
+        for visitor in self.child_visitors:
             self.output &= visitor.output
 
-        final_output = list(self.output)
-        final_output.sort()
-
-        return final_output
+        # self.visit_until_return(node.body)
+        self.teardown_scope()
 
     """
     Literals and variable names
@@ -200,21 +240,6 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         return self.return_flag
 
     """
-    Definitions
-    """
-
-    def visit_FunctionDef(self, node):
-        self.new_scope()
-        self.collect_functions(node.body)
-
-        for arg in node.args.args:
-            name = arg.arg
-            self.variables()[name] = self.new_symbolic_var()
-
-        self.visit_until_return(node.body)
-        self.teardown_scope()
-
-    """
     Control flow
     """
 
@@ -229,11 +254,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
         if isinstance(if_cond, ArithRef):
             if_cond = if_cond > 0
 
-        # save copies for the else-visitor
-        else_visitor_variables = self.variables_stack.copy()
-        else_visitor_functions = self.functions_stack.copy()
-        else_visitor_path_conds = self.path_conds.copy()
-        else_visitor_symbol_idx = self.symbol_idx
+        else_cond = simplify(Not(if_cond))
 
         solver = Solver()
         for cond in self.path_conds:
@@ -241,45 +262,53 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         solver.push()
         solver.add(if_cond)
+        if_unreachable = solver.check() == unsat
 
-        if solver.check() == unsat:
+        solver.pop()
+        solver.add(else_cond)
+        else_unreachable = solver.check() == unsat
+
+        # save copies for the else-block's visitor
+        else_visitor_variables = self.variables_stack.copy()
+        else_visitor_functions = self.functions_stack.copy()
+        else_visitor_path_conds = self.path_conds.copy()
+        else_visitor_symbol_idx = self.symbol_idx
+
+        if if_unreachable:
             # no solution, if branch unreachable
             first_line = if_block[0]
             self.output.add(first_line.lineno)
-
-            # use this visitor to traverse the else branch
-            else_visitor = self
         else:
             self.path_conds.append(if_cond)
             if_returned = self.visit_until_return(if_block)
 
-            # spawn a copy of this visitor to traverse the else branch
-            else_visitor = UnreachablePathVisitor(self.all_visitors)
-            else_visitor.variables_stack = else_visitor_variables
-            else_visitor.functions_stack = else_visitor_functions
-            else_visitor.path_conds = else_visitor_path_conds
-            else_visitor.output = self.output.copy()
-            else_visitor.symbol_idx = else_visitor_symbol_idx
-
-        else_cond = simplify(Not(if_cond))
-
-        solver.pop()
-        solver.add(else_cond)
-
-        if solver.check() == unsat:
+        if else_unreachable:
             # no solution, else branch unreachable
             else_returned = True
 
             if len(else_block) > 0:
                 first_line = else_block[0]
-                else_visitor.output.add(first_line.lineno)
-        elif len(else_block) > 0:
-            else_visitor.path_conds.append(else_cond)
-            else_returned = else_visitor.visit_until_return(else_block)
+                self.output.add(first_line.lineno)
+        else:
+            if if_unreachable:
+                # use this visitor to traverse the else branch
+                else_visitor = self
+            else:
+                # spawn a copy of this visitor to traverse the else branch
+                else_visitor = UnreachablePathVisitor(self)
+                else_visitor.variables_stack = else_visitor_variables
+                else_visitor.functions_stack = else_visitor_functions
+                else_visitor.path_conds = else_visitor_path_conds
+                else_visitor.output = self.output.copy()
+                else_visitor.symbol_idx = else_visitor_symbol_idx
 
-        output_union = self.output.union(else_visitor.output)
-        self.output = output_union
-        else_visitor.output = output_union.copy()
+            if len(else_block) > 0:
+                else_visitor.path_conds.append(else_cond)
+                else_returned = else_visitor.visit_until_return(else_block)
+
+            output_union = self.output.union(else_visitor.output)
+            self.output = output_union
+            else_visitor.output = output_union.copy()
 
         if if_returned and else_returned:
             return self.return_flag
@@ -381,6 +410,7 @@ class UnreachablePathVisitor(ast.NodeVisitor):
 
         for i, stmt in enumerate(block):
             ret = self.visit(stmt)
+
             if ret == self.return_flag:
                 returned = True
 
