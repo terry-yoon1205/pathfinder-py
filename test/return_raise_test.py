@@ -152,6 +152,20 @@ def example(x, y):
 
         self.assertListEqual([4], output)
 
+    def test_unreachable_for_return(self):
+        code = """def example(x):
+                        for i in range(0, 11):
+                           return x;
+                           print(x, " hello!")
+                        return 6
+                    """
+
+        tree = ast.parse(code)
+        visitor = UnreachablePathVisitor()
+        visitor.visit(tree)
+
+        self.assertListEqual([4, 5], visitor.output)
+
     def test_raise_multiple_location(self):
         code = """def example():
             x = 0
