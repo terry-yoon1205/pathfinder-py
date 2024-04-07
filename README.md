@@ -10,7 +10,7 @@ Currently, the tool only supports a (small) part of the Python language. This in
 - If-else conditions.
 - While loops.
 - For loops with `range()`.
-- Calls to user-defined functions which return nothing or a numerical value (as specified above). Calls to any other function will be ignored.
+- Calls to user-defined functions which return a numerical value (as specified above). Calls to any other function will be ignored.
 
 Simple example of a valid input program:
 ```python
