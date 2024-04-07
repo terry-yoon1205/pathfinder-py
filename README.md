@@ -29,7 +29,7 @@ def example(x, y):
 def add_two(n):
     return n + 2
 ```
-The tool will output that line 6 is unreachable.
+The tool will output: `Unreachable path found at line 6`.
 
 ## Usage
 1. To install Z3Py, run `pip install z3_solver` in the repo root.
