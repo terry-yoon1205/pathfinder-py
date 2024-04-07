@@ -189,3 +189,84 @@ The final video will follow a similar format as the video for the first project,
 1. explaining what the tool is for
 2. the user studies and the results
 3. some high level implementation details
+
+
+# Final user study
+For our user study, we gave the user some example code and asked them to find the unreachable lines. After they were done, we would give them the output of our program and see their initial reactions on the information. 
+
+## Code Examples
+Unreachable code on line 5:
+```
+def example(x):
+    if x > 0:
+        x = add_one(x)
+        if x < 0:
+            return 0
+        else:
+            return x
+    else:
+        return x
+
+def add_one(num):
+    return num + 1
+```
+Unreachable code on line 5:
+```
+def example(x):
+    if x > 5:
+        return True
+    elif x > 6:
+        return False
+    else:
+        return True
+```
+Unreachable code on lines 6, 8, 9:
+```
+def example(x):
+    i = 5
+    while (True):
+        i += 1
+        if i > 15:
+            print("not yet")
+        elif i > 16:
+            break
+    return 5
+```
+Unreachable code on line 13:
+```
+def example(x, y):
+    if x > 0: 
+        if y < 0:
+            return x
+        elif x > 2:
+            return 2
+        else:
+            return 0
+    elif y > 0:
+        return y
+    else:
+        return 0
+    return 6
+```
+
+## Feedback
+- For cases where there are multiple consecutive lines that are unreachable, it is not necessary to list every line as it clutters the output. Showing the range of lines or even the just first value is enough
+- Would be nice to have a UI element to highlight unreachable code oe something similar, but the simplicity of the program is also very easy to use and understand
+
+We modified the output for consecutive lines to only diplay the first line.
+Example code:
+```
+def example():
+    return 1
+    print("This will never be reached")
+    print("This will still never be reached")
+    print("This will still never be reached")
+    print("This will still never be reached")
+```
+Instead of 
+
+`Unreachable paths found at lines 3, 4, 5, 6.` 
+
+it will now output
+
+`Unreachable path found at line 3.`
