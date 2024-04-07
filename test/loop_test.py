@@ -3,7 +3,7 @@ import unittest
 from path_visitor import UnreachablePathVisitor
 
 
-class TestPathVisitor(unittest.TestCase):
+class LoopTest(unittest.TestCase):
     def test_unreachable_while_simple(self):
         code = """def example(x):
                         while (False):
@@ -15,9 +15,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_while_reachable_break1(self):
         code = """def example(x):
@@ -30,9 +30,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([], visitor.output)
+        self.assertListEqual([], output)
 
     def test_while_reachable_break_nested(self):
         code = """def example(x):
@@ -46,9 +46,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([], visitor.output)
+        self.assertListEqual([], output)
 
     def test_unreachable_while_complicated(self):
         code = """def example(x):
@@ -60,9 +60,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
     def test_unreachable_code_after_while(self):
         code = """def example(x):
@@ -78,9 +78,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([6, 8, 9], visitor.output)
+        self.assertListEqual([6, 8, 9], output)
 
     def test_unreachable_while_else(self):
         code = """def example(x):
@@ -93,9 +93,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([5], visitor.output)
+        self.assertListEqual([5], output)
 
     def test_unreachable_for_simple(self):
         code = """def example(x):
@@ -106,9 +106,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([3], visitor.output)
+        self.assertListEqual([3], output)
 
     def test_unreachable_for_variables(self):
         code = """def example(x):
@@ -120,9 +120,9 @@ class TestPathVisitor(unittest.TestCase):
 
         tree = ast.parse(code)
         visitor = UnreachablePathVisitor()
-        visitor.visit(tree)
+        output = visitor.visit(tree)
 
-        self.assertListEqual([4], visitor.output)
+        self.assertListEqual([4], output)
 
 
 # TODO: get jeff to fix this test, if possible.
@@ -144,9 +144,9 @@ class TestPathVisitor(unittest.TestCase):
 #
 #         tree = ast.parse(code)
 #         visitor = UnreachablePathVisitor()
-#         visitor.visit(tree)
+#         output = visitor.visit(tree)
 #
-#         self.assertListEqual([11], visitor.output)
+#         self.assertListEqual([11], output)
 
 #     # TODO: get jeff to fix this test, if possible.
 #     def test_reachable_for_func_call(self):
@@ -166,9 +166,9 @@ class TestPathVisitor(unittest.TestCase):
 #
 #             tree = ast.parse(code)
 #             visitor = UnreachablePathVisitor()
-#             visitor.visit(tree)
+#             output = visitor.visit(tree)
 #
-#             self.assertListEqual([], visitor.output)
+#             self.assertListEqual([], output)
 
 
 if __name__ == '__main__':
