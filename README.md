@@ -5,6 +5,7 @@ In order to determine the satisfiability of branch conditions, it utilizes the Z
 
 Currently, the tool only supports a (small) part of the Python language. This includes:
 - Primitive, numerical variables (i.e. `float`, `int`, `bool`). Other values such as strings, lists, or tuples are not supported.
+- Assignment to variables, e.g. `x = 1` or `x = y + 4`.
 - Mathematical and boolean operations. Bitwise operations are unsupported.
 - If-else conditions.
 - While loops.
@@ -29,7 +30,7 @@ def example(x, y):
 def add_two(n):
     return n + 2
 ```
-The tool will output that line 6 is unreachable.
+The tool will output: `Unreachable path found at line 6`.
 
 ## Usage
 1. To install Z3Py, run `pip install z3_solver` in the repo root.
